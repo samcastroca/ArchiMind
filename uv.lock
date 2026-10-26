@@ -84,10 +84,14 @@ version = "0.1.0"
 source = { editable = "packages/core" }
 dependencies = [
     { name = "archimind-schema" },
+    { name = "ezdxf" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "archimind-schema", editable = "packages/schema" }]
+requires-dist = [
+    { name = "archimind-schema", editable = "packages/schema" },
+    { name = "ezdxf", specifier = ">=1.4.5" },
+]
 
 [[package]]
 name = "archimind-docs"

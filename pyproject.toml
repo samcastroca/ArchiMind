@@ -46,6 +46,7 @@ select = ["E", "F", "I", "UP", "B"]
 
 [tool.mypy]
 python_version = "3.11"
+mypy_path = "tests/fixtures"
 strict = true
 
 [[tool.mypy.overrides]]
@@ -56,3 +57,8 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = ["ezdxf", "ezdxf.*"]
 implicit_reexport = true
+
+# odafc empieza con `# type: ignore`: mypy lo vería vacío. Sin seguirlo, queda como Any.
+[[tool.mypy.overrides]]
+module = ["ezdxf.addons.odafc"]
+follow_imports = "skip"
