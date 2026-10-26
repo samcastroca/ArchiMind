@@ -89,9 +89,11 @@ dependencies = [
     { name = "archimind-schema" },
     { name = "ezdxf" },
     { name = "matplotlib" },
+    { name = "mcp" },
     { name = "pydantic" },
     { name = "pyyaml" },
     { name = "rhino3dm" },
+    { name = "shapely" },
 ]
 
 [package.metadata]
@@ -99,9 +101,11 @@ requires-dist = [
     { name = "archimind-schema", editable = "packages/schema" },
     { name = "ezdxf", specifier = ">=1.4.5" },
     { name = "matplotlib", specifier = ">=3.11.2" },
+    { name = "mcp", specifier = ">=2.3" },
     { name = "pydantic", specifier = ">=2" },
     { name = "pyyaml", specifier = ">=6.0.3" },
     { name = "rhino3dm", specifier = ">=8.35.0" },
+    { name = "shapely", specifier = ">=2.1" },
 ]
 
 [[package]]

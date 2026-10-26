@@ -10,7 +10,8 @@ probarlo: `uv sync` y luego `uv run pytest`. Arquitectura, reglas y comandos en 
 ## Uso desde Claude Desktop
 
 Hace falta [uv](https://docs.astral.sh/uv/) y [git](https://git-scm.com/downloads) instalados.
-El servidor se declara en `claude_desktop_config.json`. Para abrirlo, en Claude Desktop:
+Hay dos servidores: `archimind-core` (planos y modelo) y `archimind-bloques` (carpintería). Se
+declaran en `claude_desktop_config.json`. Para abrirlo, en Claude Desktop:
 **Configuración → Desarrollador → Editar configuración**. Así se abre (o se crea) el archivo
 que la app lee de verdad: si Claude Desktop se instaló desde Microsoft Store, Windows redirige
 su carpeta y el archivo no está en `%APPDATA%\Claude\`.
@@ -32,6 +33,18 @@ repositorio, con las barras invertidas dobles:
         "archimind-core"
       ],
       "env": { "PYTHONUTF8": "1" }
+    },
+    "archimind-bloques": {
+      "command": "uv",
+      "args": [
+        "run",
+        "--directory",
+        "C:\\RUTA\\ABSOLUTA\\A\\ArchiMind",
+        "--package",
+        "archimind-bloques",
+        "archimind-bloques"
+      ],
+      "env": { "PYTHONUTF8": "1" }
     }
   }
 }
@@ -42,8 +55,8 @@ Dónde va en el archivo:
 - **Archivo vacío o recién creado**: se pega el bloque completo.
 - **Archivo con contenido y sin `mcpServers`**: `mcpServers` se añade como una clave más del
   objeto de primer nivel, junto a las que ya hay (p. ej. `preferences`), separada por una coma.
-- **Archivo que ya tiene `mcpServers`**: solo se añade la entrada `"archimind-core": {…}` dentro
-  de ese objeto, separada por una coma de los otros servidores. El archivo debe tener una sola
+- **Archivo que ya tiene `mcpServers`**: solo se añaden las entradas `"archimind-core": {…}` y
+  `"archimind-bloques": {…}` dentro de ese objeto, separadas por comas de los otros servidores. El archivo debe tener una sola
   clave `mcpServers`.
 
 El resultado tiene esta forma, donde los `…` son lo que ya hubiera en el archivo:
@@ -53,25 +66,29 @@ El resultado tiene esta forma, donde los `…` son lo que ya hubiera en el archi
   "preferences": { … },
   "mcpServers": {
     "otro-servidor": { … },
-    "archimind-core": { "command": …, "args": […], "env": { … } }
+    "archimind-core": { "command": …, "args": […], "env": { … } },
+    "archimind-bloques": { "command": …, "args": […], "env": { … } }
   }
 }
 ```
 
 Después se guarda y se cierra Claude Desktop del todo (también desde la bandeja del sistema)
-antes de volver a abrirlo. En **Configuración → Desarrollador**, `archimind-core` debe aparecer
-en marcha; ahí mismo está el botón para abrir la carpeta de registros
-(`mcp-server-archimind-core.log`). Si no encuentra `uv`, en `command` va su ruta completa
-(`where uv` en Windows, `which uv` en macOS). Para probar el servidor sin Claude Desktop:
-`uv run --package archimind-core archimind-core` arranca y espera mensajes por stdio.
+antes de volver a abrirlo. En **Configuración → Desarrollador**, los dos servidores deben
+aparecer en marcha; ahí mismo está el botón para abrir la carpeta de registros
+(`mcp-server-archimind-core.log`, `mcp-server-archimind-bloques.log`). Si no encuentra `uv`, en
+`command` va su ruta completa (`where uv` en Windows, `which uv` en macOS). Para probar un
+servidor sin Claude Desktop: `uv run --package archimind-core archimind-core` (o
+`archimind-bloques`) arranca y espera mensajes por stdio.
 
 Flujo de trabajo: abrir_proyecto → importar_plano → proponer_mapeo_capas → aplicar_mapeo →
-confirmar_escala → consultas, vista y exportación.
+confirmar_escala → consultas, vista y exportación. Carpintería: exportar_plano (dxf) →
+ajustar_bloque_a_vano → insertar_bloques_en_plano → asignar_bloques.
 
 ## Estado
 
-Está implementado `packages/schema`, el contrato del que dependen los demás paquetes, y en
-`packages/core` la importación de planos con su servidor MCP. `schema`:
+Está implementado `packages/schema`, el contrato del que dependen los demás paquetes; en
+`packages/core` la importación de planos con su servidor MCP, y en `packages/bloques` la
+carpintería paramétrica con el suyo. `schema`:
 
 - **Modelo semántico** (Pydantic v2): proyecto, niveles, muros, vanos, espacios, bloques y
   anotaciones, en metros. Pydantic comprueba la forma y los tipos.
@@ -234,8 +251,22 @@ La lógica de `core`:
 
 En `schema`, `layer_mapping` solo admite esos nueve roles (`LayerRole`).
 
-**Generadores de carpintería** en `packages/bloques`, deterministas y sin LLM; el servidor MCP
-todavía no está:
+**Servidor MCP `archimind-bloques`** (`archimind_bloques/server.py`). Son 5 herramientas que
+responden con un resumen de menos de 50 líneas y rutas de archivo; nunca escriben el modelo. Las
+descripciones explican el esquema con un ejemplo («ventana corrediza de aluminio de 3 hojas de
+2.40 × 1.50» → `tipo="sliding_window"`, `parametros={"width": 2.40, "height": 1.50, "leaves": 3,
+"material": "aluminio"}`) y piden no inventar medidas: lo que falta sale del vano o del catálogo.
+
+- `listar_catalogo` y `agregar_al_catalogo(clave, perfil)`: el catálogo es único, así que no
+  reciben `project_path`.
+- `crear_bloque(project_path, tipo, parametros, formatos)`: un bloque suelto en
+  `salidas/bloques/` (dxf, svg, png, 3dm).
+- `ajustar_bloque_a_vano(project_path, vano_id, preferencias)`: la carpintería de un vano con el
+  porqué de cada elección, sin escribir nada.
+- `insertar_bloques_en_plano(project_path, asignaciones)`: el DXF con la carpintería y el
+  borrador para `asignar_bloques` de core.
+
+**Generadores de carpintería** en `packages/bloques`, deterministas y sin LLM:
 
 - **Tipos**: puerta batiente, batiente doble y corrediza; ventana corrediza de 2 a 4 hojas, fija
   y proyectante. Cada uno es un modelo Pydantic (`SwingDoor`, `DoubleSwingDoor`, `SlidingDoor`,
@@ -307,6 +338,5 @@ todavía no está:
 
 Siguen pendientes:
 - los muros curvos y varios niveles por plano;
-- el servidor de `bloques` y su enlace con los vanos del modelo;
 - `docs` y `vision`;
 - los puentes con Rhino, AutoCAD e Illustrator.
