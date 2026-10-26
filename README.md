@@ -82,7 +82,9 @@ servidor sin Claude Desktop: `uv run --package archimind-core archimind-core` (o
 
 Flujo de trabajo: abrir_proyecto → importar_plano → proponer_mapeo_capas → aplicar_mapeo →
 confirmar_escala → consultas, vista y exportación. Carpintería: exportar_plano (dxf) →
-ajustar_bloque_a_vano → insertar_bloques_en_plano → asignar_bloques.
+ajustar_bloque_a_vano → insertar_bloques_en_plano → asignar_bloques. Para probarlo hay 20
+pedidos de ejemplo en `tests/pedidos_bloques.yaml`, con la llamada y el resultado esperados, y
+los pasos en `packages/bloques/PRUEBA_MANUAL.md`.
 
 ## Estado
 
@@ -332,6 +334,11 @@ descripciones explican el esquema con un ejemplo («ventana corrediza de alumini
   - `export_3dm`: con rhino3dm; las piezas son extrusiones en las capas Marco y Hoja, y los
     vidrios, superficies en la capa Vidrio.
   - `render_png`: para revisión visual.
+- `tests/pedidos_bloques.yaml`: 20 pedidos en lenguaje natural con la herramienta, los argumentos
+  y lo que debe resultar. `tests/integration/test_pedidos_bloques.py` los llama por MCP con el
+  `catalog.yaml` real (una copia): si se cambia el catálogo y un pedido deja de calzar, avisa.
+- `uv run python scripts/render_dxf.py <proyecto>/salidas/<proyecto>-carpinteria.dxf` renderiza
+  el plano con la carpintería a PNG.
 - `uv run --package archimind-bloques pytest packages/bloques/tests/test_block_png.py` deja el
   PNG, el DXF, el SVG y el .3dm de cada tipo en `tests/output/bloques/`.
   `packages/bloques/PRUEBA_MANUAL.md` explica cómo revisarlos en Rhino y AutoCAD.

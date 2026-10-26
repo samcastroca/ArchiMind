@@ -31,7 +31,8 @@ no comercial.
 - SDK oficial de MCP para Python, v2: `from mcp.server import MCPServer`, el antiguo FastMCP
   (`mcp.server.fastmcp` ya no existe). Pruebas en proceso con `async with Client(mcp)`.
 - Nombres de herramientas en español y snake_case. Código, clases y variables en inglés.
-- Toda herramienta recibe `project_path`.
+- Toda herramienta recibe `project_path`, salvo `listar_catalogo` y `agregar_al_catalogo` de
+  bloques: el catálogo es uno para todos los proyectos.
 - Las respuestas son resúmenes y rutas de archivo; las coordenadas se quedan en los archivos.
 - Errores con mensajes claros para el usuario final (p. ej., "Rhino no está abierto"), lanzados
   como `ToolError`: es la única excepción cuyo mensaje el SDK hace llegar al cliente.

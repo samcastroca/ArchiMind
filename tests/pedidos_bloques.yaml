@@ -1,0 +1,194 @@
+# Pedidos de ejemplo para probar archimind-bloques desde Claude Desktop.
+#
+# Preparación, una vez, con archimind-core: abrir_proyecto en una carpeta nueva (p. ej.
+# C:\ArchiMind\casa), importar_plano con tests/golden/apto_2hab/input.dxf de este repositorio,
+# proponer_mapeo_capas, aplicar_mapeo con la propuesta tal cual y exportar_plano con formato
+# "dxf". El plano declara metros: la escala queda confirmada. Recintos que resultan: esp-0001
+# Baño, esp-0002 Habitación 1, esp-0003 Sala-comedor-cocina, esp-0004 Habitación 2.
+#
+# Cada pedido trae el texto que se le escribe a Claude, la herramienta y los argumentos que
+# debería usar (sin project_path, que es la carpeta del proyecto) y lo que debe resultar con el
+# catalog.yaml de ejemplo: los campos de los parámetros (en inglés), `profile` (la clave del
+# perfil elegido), `opens_into` (el recinto de adentro) o `texto` (frases de la respuesta).
+# `error` es el texto que debe traer el error. Al pedir, Claude no debería inventar medidas: lo
+# que el usuario no dice se omite.
+#
+# tests/integration/test_pedidos_bloques.py llama cada pedido con el catalog.yaml real: si se
+# cambia el catálogo y un pedido deja de dar lo esperado, esa prueba lo dice.
+
+pedidos:
+  # --- crear_bloque: bloques sueltos ------------------------------------------------------
+  - pedido: Hazme una ventana corrediza de aluminio de 3 hojas de 2.40 × 1.50.
+    herramienta: crear_bloque
+    argumentos:
+      tipo: sliding_window
+      parametros: {width: 2.40, height: 1.50, leaves: 3, material: aluminio}
+    # La serie liviana no tiene fondo para 3 rieles: queda la pesada.
+    esperado: {type: sliding_window, profile: aluminio_pesado, leaves: 3, width: 2.40, height: 1.50}
+
+  - pedido: Una puerta batiente de madera de 0.90 × 2.10, mano derecha, que abra hacia afuera.
+    herramienta: crear_bloque
+    argumentos:
+      tipo: swing_door
+      parametros: {width: 0.90, height: 2.10, material: madera, hand: right, swing: out}
+    esperado: {type: swing_door, profile: madera, hand: right, swing: out, leaf_thickness: 0.04}
+
+  - pedido: Necesito una puerta doble de madera de 1.60 de ancho.
+    herramienta: crear_bloque
+    argumentos:
+      tipo: double_swing_door
+      parametros: {width: 1.60, material: madera}
+    # Sin alto: el del catálogo.
+    esperado: {type: double_swing_door, profile: madera, width: 1.60, height: 2.10, swing: in}
+
+  - pedido: Ventana fija de 1.00 × 1.00 en aluminio serie liviana, con antepecho de 1.00.
+    herramienta: crear_bloque
+    argumentos:
+      tipo: fixed_window
+      parametros: {width: 1.00, height: 1.00, profile: aluminio_liviano, sill_height: 1.00}
+    esperado: {type: fixed_window, profile: aluminio_liviano, sill_height: 1.00}
+
+  - pedido: Una ventana proyectante para el baño de 0.60 × 0.40 con antepecho de 1.60.
+    herramienta: crear_bloque
+    argumentos:
+      tipo: awning_window
+      parametros: {width: 0.60, height: 0.40, sill_height: 1.60}
+    esperado: {type: awning_window, profile: aluminio_liviano, width: 0.60, height: 0.40}
+
+  - pedido: >-
+      Puerta corrediza de aluminio de 1.00 × 2.10 que corra hacia la izquierda por la cara de
+      adentro.
+    herramienta: crear_bloque
+    argumentos:
+      tipo: sliding_door
+      parametros: {width: 1.00, height: 2.10, material: aluminio, hand: left, side: in}
+    esperado: {type: sliding_door, profile: aluminio_pesado, hand: left, side: in}
+
+  - pedido: Una ventana corrediza de 4 hojas de 3.00 × 1.20.
+    herramienta: crear_bloque
+    argumentos:
+      tipo: sliding_window
+      parametros: {width: 3.00, height: 1.20, leaves: 4}
+    esperado: {type: sliding_window, profile: aluminio_liviano, leaves: 4}
+
+  - pedido: Ventana corrediza de 1.20 × 1.20.
+    herramienta: crear_bloque
+    argumentos:
+      tipo: sliding_window
+      parametros: {width: 1.20, height: 1.20}
+    # Sin hojas ni perfil: las menos hojas con el primer perfil que calza.
+    esperado: {type: sliding_window, profile: aluminio_liviano, leaves: 2, sill_height: 0.90}
+
+  - pedido: Una puerta de madera de 0.80 para un tabique de 10 cm.
+    herramienta: crear_bloque
+    argumentos:
+      tipo: swing_door
+      parametros: {width: 0.80, wall_thickness: 0.10, material: madera}
+    esperado: {type: swing_door, profile: madera, wall_thickness: 0.10, hand: left, swing: in}
+
+  - pedido: Ventana corrediza de 2 hojas de 1.50 × 1.10; la quiero en SVG y para Rhino.
+    herramienta: crear_bloque
+    argumentos:
+      tipo: sliding_window
+      parametros: {width: 1.50, height: 1.10, leaves: 2}
+      formatos: [svg, 3dm]
+    esperado: {type: sliding_window, profile: aluminio_liviano, leaves: 2}
+
+  - pedido: Ventana corrediza de 3 hojas de 1.80 × 1.20 en aluminio serie liviana.
+    herramienta: crear_bloque
+    argumentos:
+      tipo: sliding_window
+      parametros: {width: 1.80, height: 1.20, leaves: 3, profile: aluminio_liviano}
+    error: necesita 3 rieles
+
+  - pedido: Una puerta batiente de madera de una sola hoja de 1.40 de ancho.
+    herramienta: crear_bloque
+    argumentos:
+      tipo: swing_door
+      parametros: {width: 1.40, material: madera}
+    error: El ancho máximo es 1.12 m
+
+  # --- ajustar_bloque_a_vano: consulta sobre el modelo ------------------------------------
+  - pedido: ¿Qué puerta va en el vano-0008?
+    herramienta: ajustar_bloque_a_vano
+    argumentos: {vano_id: vano-0008}
+    # La puerta de entrada: muro exterior, abre hacia la sala.
+    esperado: {type: swing_door, profile: aluminio_pesado, opens_into: esp-0003, width: 0.90}
+
+  - pedido: En el vano-0004 quiero una corrediza de 3 hojas en aluminio.
+    herramienta: ajustar_bloque_a_vano
+    argumentos:
+      vano_id: vano-0004
+      preferencias: {type: sliding_window, leaves: 3, material: aluminio}
+    esperado: {type: sliding_window, profile: aluminio_pesado, leaves: 3, width: 1.50}
+
+  - pedido: La puerta del baño, vano-0001, que abra hacia la sala esp-0003.
+    herramienta: ajustar_bloque_a_vano
+    argumentos:
+      vano_id: vano-0001
+      preferencias: {opens_into: esp-0003}
+    # Sin la preferencia abriría hacia el baño, el recinto más pequeño.
+    esperado: {type: swing_door, opens_into: esp-0003, width: 0.70}
+
+  - pedido: En el vano-0002 pon una puerta corrediza de madera.
+    herramienta: ajustar_bloque_a_vano
+    argumentos:
+      vano_id: vano-0002
+      preferencias: {type: sliding_door, material: madera}
+    esperado: {type: sliding_door, profile: madera, opens_into: esp-0002, side: in}
+
+  # --- insertar_bloques_en_plano: DXF y borrador ------------------------------------------
+  - pedido: Pon puertas y ventanas en todos los vanos del plano.
+    herramienta: insertar_bloques_en_plano
+    argumentos: {}
+    esperado:
+      vanos:
+        vano-0001: {type: swing_door, opens_into: esp-0001}
+        vano-0002: {type: swing_door, opens_into: esp-0002}
+        vano-0003: {type: swing_door, opens_into: esp-0004}
+        vano-0004: {type: sliding_window, leaves: 2}
+        vano-0005: {type: awning_window, opens_into: esp-0001}
+        vano-0006: {type: sliding_window, leaves: 2}
+        vano-0007: {type: sliding_window, leaves: 2}
+        vano-0008: {type: swing_door, opens_into: esp-0003}
+        vano-0009: {type: sliding_window, leaves: 2}
+
+  - pedido: >-
+      En el vano-0008 inserta una puerta de madera que abra hacia afuera, y en la ventana del
+      baño (vano-0005) una fija.
+    herramienta: insertar_bloques_en_plano
+    argumentos:
+      asignaciones:
+        vano-0008: {material: madera, swing: out}
+        vano-0005: {type: fixed_window}
+    esperado:
+      vanos:
+        vano-0008: {type: swing_door, profile: madera, swing: out, opens_into: esp-0003}
+        vano-0005: {type: fixed_window, profile: aluminio_liviano}
+
+  # --- Catálogo --------------------------------------------------------------------------
+  - pedido: ¿Qué perfiles de carpintería tengo?
+    herramienta: listar_catalogo
+    argumentos: {}
+    esperado:
+      texto: [aluminio_liviano, aluminio_pesado, madera, Catálogo de carpintería (3 perfiles)]
+
+  - pedido: >-
+      Agrega al catálogo el perfil PVC serie 70 para ventanas corredizas y fijas: marco de 0.06 m
+      visto y 0.07 de fondo, hoja de 0.05 × 0.03, traslape de 0.03, vidrio de 0.005, y hojas de
+      0.35 a 1.10 de ancho y de 0.35 a 1.60 de alto.
+    herramienta: agregar_al_catalogo
+    argumentos:
+      clave: pvc_70
+      perfil:
+        name: PVC serie 70
+        material: pvc
+        types: [sliding_window, fixed_window]
+        frame: {face: 0.06, depth: 0.07}
+        sash: {face: 0.05, depth: 0.03}
+        overlap: 0.03
+        glass: 0.005
+        sash_width: {min: 0.35, max: 1.10}
+        sash_height: {min: 0.35, max: 1.60}
+    esperado:
+      texto: ["pvc_70: PVC serie 70 (pvc)", ahora 4 perfiles]
