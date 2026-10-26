@@ -106,7 +106,7 @@ def applied(plan: str, result: BuildResult, version: str | None) -> str:
     lines.append(f"Problemas: {_problem_counts(result.problems)}.")
     ordered = sorted(result.problems, key=lambda p: p.severity != "error")
     lines += truncate([f"  {_problem_line(p)}" for p in ordered], 35)
-    lines.append("Para revisarlo: renderizar_vista, listar_espacios, listar_vanos.")
+    lines.append("Para revisarlo: exportar_plano (png), listar_espacios, listar_vanos.")
     return _text([*lines, *_version_line(version)])
 
 

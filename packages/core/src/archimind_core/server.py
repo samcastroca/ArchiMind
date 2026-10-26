@@ -8,7 +8,7 @@ repositorio del proyecto. Se ejecuta con `uv run --package archimind-core archim
 import functools
 from collections.abc import Callable
 from pathlib import Path
-from typing import Annotated, ParamSpec
+from typing import Annotated, Literal, ParamSpec
 
 from archimind_schema import Project, save_project, validate
 from mcp.server import MCPServer
@@ -45,7 +45,7 @@ ArchiMind convierte planos arquitectónicos DXF/DWG en un modelo semántico (mur
 espacios) guardado en la carpeta de cada proyecto y versionado con git.
 Flujo: abrir_proyecto → importar_plano → proponer_mapeo_capas → aplicar_mapeo (con la propuesta
 revisada) → confirmar_escala → consultas (listar_espacios, listar_vanos, cuadro_de_areas,
-validar_modelo), renderizar_vista, exportar_dxf y comparar_versiones.
+validar_modelo), exportar_plano (png o dxf) y comparar_versiones.
 Las áreas, longitudes y cantidades salen siempre de estas herramientas; no las calcules ni las
 estimes. Si la escala no está confirmada, toda cantidad es PRELIMINAR y hay que decirlo."""
 
@@ -281,21 +281,24 @@ def comparar_versiones(
 
 
 @_tool(WRITES_OUTPUT)
-def renderizar_vista(project_path: ProjectPath) -> str:
-    """Dibuja la planta del modelo en salidas/vista.png: espacios con nombre y área, muros y
-    vanos. Úsala para revisar a ojo el modelo reconstruido. Devuelve la ruta del PNG."""
+def exportar_plano(
+    project_path: ProjectPath,
+    formato: Annotated[
+        Literal["png", "dxf"],
+        Field(description='"png" para mirar la planta, "dxf" para llevarla a un programa de CAD.'),
+    ],
+) -> str:
+    """Dibuja la planta del modelo en salidas/. Con formato="png", salidas/vista.png: espacios
+    con nombre y área, muros y vanos, para revisar a ojo el modelo reconstruido. Con
+    formato="dxf", salidas/<proyecto>.dxf: un DXF limpio en metros con los muros con los vanos
+    recortados, puertas, ventanas, espacios, sus nombres y sus áreas, cada uno en su capa; necesita
+    la escala confirmada, y es el plano sobre el que archimind-bloques inserta la carpintería.
+    Devuelve la ruta del archivo."""
     folder, project = _use(project_path)
-    path = render_model(project, outputs_dir(folder) / "vista.png")
-    note = "" if project.scale_confirmed else " (escala sin confirmar: áreas preliminares)"
-    return f"Vista guardada en {path}{note}."
-
-
-@_tool(WRITES_OUTPUT)
-def exportar_dxf(project_path: ProjectPath) -> str:
-    """Exporta el modelo a un DXF limpio en metros en salidas/<proyecto>.dxf: muros con los
-    vanos recortados, puertas, ventanas, espacios, sus nombres y sus áreas, cada uno en su capa.
-    Necesita la escala confirmada. Devuelve la ruta del DXF."""
-    folder, project = _use(project_path)
+    if formato == "png":
+        path = render_model(project, outputs_dir(folder) / "vista.png")
+        note = "" if project.scale_confirmed else " (escala sin confirmar: áreas preliminares)"
+        return f"Vista guardada en {path}{note}."
     path = export_dxf(project, outputs_dir(folder) / f"{folder.name}.dxf")
     return f"DXF exportado en {path} (metros; capas A-MURO, A-PUERTA, A-VENTANA, A-ESPACIO…)."
 

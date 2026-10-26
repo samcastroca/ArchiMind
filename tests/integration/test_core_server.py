@@ -39,8 +39,7 @@ TOOLS = {
     "listar_vanos",
     "cuadro_de_areas",
     "comparar_versiones",
-    "renderizar_vista",
-    "exportar_dxf",
+    "exportar_plano",
 }
 MAX_LINES = 50
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
@@ -182,10 +181,10 @@ async def test_full_flow_with_a_confirmed_plan(client: Client, tmp_path: Path) -
     assert f"Área útil: {table.useful_area:.2f} m²" in areas
     assert (folder / "salidas" / "cuadro_de_areas.csv").is_file()
 
-    view = await call(client, "renderizar_vista", project_path=path)
+    view = await call(client, "exportar_plano", project_path=path, formato="png")
     assert (folder / "salidas" / "vista.png").read_bytes().startswith(PNG_SIGNATURE)
     assert str(folder / "salidas" / "vista.png") in view
-    exported = await call(client, "exportar_dxf", project_path=path)
+    exported = await call(client, "exportar_plano", project_path=path, formato="dxf")
     assert str(folder / "salidas" / "casa.dxf") in exported
     assert ezdxf.readfile(folder / "salidas" / "casa.dxf").units == ezdxf.units.M
 
@@ -227,7 +226,9 @@ async def test_inferred_units_stay_preliminary_until_confirmed(
     for tool in ("listar_espacios", "cuadro_de_areas"):
         assert "PRELIMINAR: escala sin confirmar" in await call(client, tool, project_path=path)
     assert "CSV no exportado" in await call(client, "cuadro_de_areas", project_path=path)
-    assert "confirma la escala" in await fails(client, "exportar_dxf", project_path=path)
+    assert "confirma la escala" in await fails(
+        client, "exportar_plano", project_path=path, formato="dxf"
+    )
 
     confirmed = await call(client, "confirmar_escala", project_path=path)
     assert "Escala confirmada: el plano está en milímetros" in confirmed

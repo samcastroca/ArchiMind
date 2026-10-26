@@ -115,7 +115,7 @@ dibuja a partir de él con ezdxf.
   por git).
 
 **Servidor MCP `archimind-core`** (`archimind_core/server.py`, con el SDK oficial `mcp` 2.x y
-`MCPServer`). Son 12 herramientas, todas con `project_path`, que responden con un resumen de
+`MCPServer`). Son 11 herramientas, todas con `project_path`, que responden con un resumen de
 menos de 50 líneas y rutas de archivo. Las que modifican el modelo hacen un commit en el
 repositorio del proyecto y responden con el hash de la versión:
 
@@ -130,8 +130,7 @@ repositorio del proyecto y responden con el hash de la versión:
 - `validar_modelo`, `listar_espacios` y `listar_vanos`.
 - `cuadro_de_areas`: con la escala confirmada, además escribe `salidas/cuadro_de_areas.csv`.
 - `comparar_versiones(version_a, version_b)`: hashes o referencias como `HEAD~1`.
-- `renderizar_vista` → `salidas/vista.png`.
-- `exportar_dxf` → `salidas/<proyecto>.dxf`.
+- `exportar_plano(formato)`: `"png"` → `salidas/vista.png`; `"dxf"` → `salidas/<proyecto>.dxf`.
 
 El recurso `archimind://proyecto/modelo` resume el último proyecto abierto o usado en la sesión:
 plano activo, escala, conteos, áreas, validación y últimas versiones. Los errores previstos
