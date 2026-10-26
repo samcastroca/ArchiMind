@@ -45,6 +45,7 @@ from archimind_core.quantities import (
     opening_counts,
     wall_quantities,
 )
+from archimind_core.scale import ScaleConfirmation, ScaleError, confirm_scale, rescale
 from archimind_core.units import DrawingUnits, detect_units
 
 __all__ = [
@@ -70,6 +71,8 @@ __all__ = [
     "OpeningCounts",
     "ProjectError",
     "QuantitiesError",
+    "ScaleConfirmation",
+    "ScaleError",
     "SpaceArea",
     "SpaceChange",
     "Version",
@@ -81,6 +84,7 @@ __all__ = [
     "build_model",
     "commit",
     "compare_versions",
+    "confirm_scale",
     "detect_units",
     "export_area_table_csv",
     "import_drawing",
@@ -98,5 +102,6 @@ __all__ = [
     "propose_mapping",
     "read_drawing",
     "recent_versions",
+    "rescale",
     "wall_quantities",
 ]

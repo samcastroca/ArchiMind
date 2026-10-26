@@ -100,6 +100,12 @@ dibuja a partir de él con ezdxf.
     `packages/core/config/build_rules.yaml`, con los umbrales, y se declara en el aviso
     `valores_por_defecto`.
 
+- **Escala**: `confirm_scale(project)` confirma las unidades con las que se leyó el plano.
+  `confirm_scale(project, muro_id, longitud_real)` escala el modelo para que el eje de ese muro
+  mida `longitud_real` metros, y también la confirma. `rescale(project, k)` multiplica lo
+  medido en el plano (ejes, espesores, offsets y anchos de vano, espacios, anotaciones) y deja
+  las alturas, los antepechos y las elevaciones, que salen de `build_rules.yaml`. Una
+  reconstrucción con `apply_mapping` vuelve a la escala del plano.
 - **Cantidades**, todas calculadas con la geometría del modelo. Si la escala no está confirmada,
   cada resultado lleva `preliminary` y la etiqueta «PRELIMINAR: escala sin confirmar».
   - `area_table(project)`: por espacio, nombre, categoría y área; totales de área útil (todos
