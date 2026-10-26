@@ -2,37 +2,24 @@
 
 import math
 import re
-from collections.abc import Callable, Iterable
-from typing import Annotated, Literal
+from collections.abc import Iterable
+from typing import Literal
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field, model_validator
-from shapely import Polygon, is_valid_reason
-
-from archimind_schema.geometry import wall_length
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 LENGTH_TOL = 0.001
 ANGLE_TOL_DEG = 0.5
 ID_PREFIXES = ("niv", "muro", "vano", "esp", "blq")
+WALL_THICKNESSES = (0.10, 0.12, 0.15, 0.20, 0.25)
 
 Point2D = tuple[float, float]
 
 
-def _prefixed_id(prefix: str) -> Callable[[str], str]:
-    pattern = re.compile(rf"^{prefix}-\d{{4,}}$")
-
-    def check(value: str) -> str:
-        if not pattern.match(value):
-            raise ValueError(f"el ID '{value}' no tiene el formato '{prefix}-NNNN'")
-        return value
-
-    return check
+def id_pattern(prefix: str) -> re.Pattern[str]:
+    return re.compile(rf"^{prefix}-\d{{4,}}$")
 
 
-LevelId = Annotated[str, AfterValidator(_prefixed_id("niv"))]
-WallId = Annotated[str, AfterValidator(_prefixed_id("muro"))]
-OpeningId = Annotated[str, AfterValidator(_prefixed_id("vano"))]
-SpaceId = Annotated[str, AfterValidator(_prefixed_id("esp"))]
-BlockId = Annotated[str, AfterValidator(_prefixed_id("blq"))]
+_ANY_ID = id_pattern("(?:" + "|".join(ID_PREFIXES) + ")")
 
 
 class _Model(BaseModel):
@@ -40,17 +27,17 @@ class _Model(BaseModel):
 
 
 class Level(_Model):
-    id: LevelId
+    id: str
     name: str
     elevation: float
     default_height: float = Field(gt=0)
 
 
 class Wall(_Model):
-    id: WallId
-    level_id: LevelId
+    id: str
+    level_id: str
     axis: list[Point2D] = Field(min_length=2)
-    thickness: float = Field(gt=0)
+    thickness: float
     height: float | None = Field(default=None, gt=0)
     source_layer: str | None = None
 
@@ -63,35 +50,24 @@ class Wall(_Model):
 
 
 class Opening(_Model):
-    id: OpeningId
-    wall_id: WallId
+    id: str
+    wall_id: str
     kind: Literal["door", "window", "void"]
     offset: float = Field(ge=0)
     width: float = Field(gt=0)
     height: float = Field(gt=0)
     sill_height: float = Field(ge=0)
-    block_id: BlockId | None = None
+    block_id: str | None = None
 
 
 class SpacePolygon(_Model):
     exterior: list[Point2D] = Field(min_length=3)
     holes: list[list[Point2D]] = Field(default_factory=list)
 
-    @model_validator(mode="after")
-    def _is_valid_polygon(self) -> "SpacePolygon":
-        if any(len(hole) < 3 for hole in self.holes):
-            raise ValueError("cada hueco del polígono necesita al menos 3 puntos")
-        polygon = Polygon(self.exterior, self.holes)
-        if not polygon.is_valid:
-            raise ValueError(f"polígono no válido: {is_valid_reason(polygon)}")
-        if polygon.area <= 0:
-            raise ValueError("el polígono tiene área nula")
-        return self
-
 
 class Space(_Model):
-    id: SpaceId
-    level_id: LevelId
+    id: str
+    level_id: str
     name: str
     polygon: SpacePolygon
     category: Literal["useful", "balcony", "circulation", "service", "technical"]
@@ -122,24 +98,21 @@ class Project(_Model):
     next_ids: dict[str, int] = Field(default_factory=lambda: dict.fromkeys(ID_PREFIXES, 1))
 
     @model_validator(mode="after")
-    def _check_integrity(self) -> "Project":
-        used = self._used_ids()
-        self._check_next_ids(used)
-        level_ids = {level.id for level in self.levels}
-        walls = {wall.id: wall for wall in self.walls}
-        located: list[Wall | Space] = [*self.walls, *self.spaces]
-        for item in located:
-            if item.level_id not in level_ids:
-                raise ValueError(f"{item.id} apunta al nivel inexistente {item.level_id}")
-        for opening in self.openings:
-            wall = walls.get(opening.wall_id)
-            if wall is None:
-                raise ValueError(f"{opening.id} apunta al muro inexistente {opening.wall_id}")
-            if opening.offset + opening.width > wall_length(wall) + LENGTH_TOL:
-                raise ValueError(f"{opening.id} se sale de la longitud del muro {wall.id}")
+    def _check_next_ids(self) -> "Project":
+        """Solo la estructura: las reglas semánticas las reporta `validate`."""
+        if set(self.next_ids) != set(ID_PREFIXES):
+            raise ValueError(f"next_ids debe tener exactamente los prefijos {list(ID_PREFIXES)}")
+        for entity_id in self._used_ids():
+            prefix = entity_id.rsplit("-", 1)[0]
+            if _id_number(entity_id) >= self.next_ids[prefix]:
+                raise ValueError(
+                    f"el contador de '{prefix}' ({self.next_ids[prefix]}) no supera el ID "
+                    f"existente {entity_id}"
+                )
         return self
 
     def _used_ids(self) -> list[str]:
+        """IDs bien formados en uso; los mal formados los reporta `validate`."""
         entities: Iterable[Level | Wall | Opening | Space] = [
             *self.levels,
             *self.walls,
@@ -147,21 +120,5 @@ class Project(_Model):
             *self.spaces,
         ]
         ids = [entity.id for entity in entities]
-        seen: set[str] = set()
-        for entity_id in ids:
-            if entity_id in seen:
-                raise ValueError(f"el ID {entity_id} está repetido")
-            seen.add(entity_id)
         ids += [o.block_id for o in self.openings if o.block_id is not None]
-        return ids
-
-    def _check_next_ids(self, used: list[str]) -> None:
-        if set(self.next_ids) != set(ID_PREFIXES):
-            raise ValueError(f"next_ids debe tener exactamente los prefijos {list(ID_PREFIXES)}")
-        for entity_id in used:
-            prefix = entity_id.rsplit("-", 1)[0]
-            if _id_number(entity_id) >= self.next_ids[prefix]:
-                raise ValueError(
-                    f"el contador de '{prefix}' ({self.next_ids[prefix]}) no supera el ID "
-                    f"existente {entity_id}"
-                )
+        return [entity_id for entity_id in ids if _ANY_ID.match(entity_id)]

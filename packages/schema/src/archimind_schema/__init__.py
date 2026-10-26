@@ -7,6 +7,7 @@ from archimind_schema.models import (
     ANGLE_TOL_DEG,
     ID_PREFIXES,
     LENGTH_TOL,
+    WALL_THICKNESSES,
     Annotation,
     Level,
     Opening,
@@ -16,16 +17,19 @@ from archimind_schema.models import (
     SpacePolygon,
     Wall,
 )
+from archimind_schema.validation import Problem, validate
 
 __all__ = [
     "ANGLE_TOL_DEG",
     "ID_PREFIXES",
     "LENGTH_TOL",
     "MODEL_FILENAME",
+    "WALL_THICKNESSES",
     "Annotation",
     "Level",
     "Opening",
     "Point2D",
+    "Problem",
     "Project",
     "Space",
     "SpacePolygon",
@@ -34,6 +38,7 @@ __all__ = [
     "new_id",
     "save_project",
     "space_area",
+    "validate",
     "wall_height",
     "wall_length",
     "wall_polygon",
