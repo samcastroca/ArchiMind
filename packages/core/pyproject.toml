@@ -7,10 +7,14 @@ dependencies = [
     "archimind-schema",
     "ezdxf>=1.4.5",
     "matplotlib>=3.11.2",
+    "mcp>=2.3",
     "pydantic>=2",
     "pyyaml>=6.0.3",
     "shapely>=2.1",
 ]
+
+[project.scripts]
+archimind-core = "archimind_core.server:main"
 
 [tool.uv.sources]
 archimind-schema = { workspace = true }

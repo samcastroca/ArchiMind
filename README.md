@@ -7,10 +7,44 @@ carpintería, axonometrías y cortes, todo a través de servidores MCP usados de
 Es un workspace de [uv](https://docs.astral.sh/uv/) con Python >= 3.11. Para instalarlo y
 probarlo: `uv sync` y luego `uv run pytest`. Arquitectura, reglas y comandos en [CLAUDE.md](CLAUDE.md).
 
+## Uso desde Claude Desktop
+
+Hace falta [uv](https://docs.astral.sh/uv/) y [git](https://git-scm.com/downloads) instalados.
+Se añade el servidor a `claude_desktop_config.json` (en Windows,
+`%APPDATA%\Claude\claude_desktop_config.json`; en macOS,
+`~/Library/Application Support/Claude/claude_desktop_config.json`), cambiando la ruta por la
+ruta absoluta de este repositorio:
+
+```json
+{
+  "mcpServers": {
+    "archimind-core": {
+      "command": "uv",
+      "args": [
+        "run",
+        "--directory",
+        "C:\\RUTA\\ABSOLUTA\\A\\ArchiMind",
+        "--package",
+        "archimind-core",
+        "archimind-core"
+      ],
+      "env": { "PYTHONUTF8": "1" }
+    }
+  }
+}
+```
+
+Después hay que reiniciar Claude Desktop. Si no encuentra `uv`, en `command` va su ruta
+completa (`where uv` en Windows, `which uv` en macOS). Para probar el servidor sin Claude
+Desktop: `uv run --package archimind-core archimind-core` arranca y espera mensajes por stdio.
+
+Flujo de trabajo: abrir_proyecto → importar_plano → proponer_mapeo_capas → aplicar_mapeo →
+confirmar_escala → consultas, vista y exportación.
+
 ## Estado
 
-Está implementado `packages/schema`, el contrato del que dependen los demás paquetes, y la
-importación de planos en `packages/core`. `schema`:
+Está implementado `packages/schema`, el contrato del que dependen los demás paquetes, y en
+`packages/core` la importación de planos con su servidor MCP. `schema`:
 
 - **Modelo semántico** (Pydantic v2): proyecto, niveles, muros, vanos, espacios y anotaciones, en
   metros. Pydantic comprueba la forma y los tipos.
@@ -44,7 +78,32 @@ dibuja a partir de él con ezdxf.
   con nombre y área. Con `--all` hace los casos golden en `tests/output/build_model/` (ignorada
   por git).
 
-`core` (por ahora solo la lógica, sin servidor MCP):
+**Servidor MCP `archimind-core`** (`archimind_core/server.py`, con el SDK oficial `mcp` 2.x y
+`MCPServer`). Son 12 herramientas, todas con `project_path`, que responden con un resumen de
+menos de 50 líneas y rutas de archivo. Las que modifican el modelo hacen un commit en el
+repositorio del proyecto y responden con el hash de la versión:
+
+- `abrir_proyecto`: crea la carpeta, `modelo.json`, `salidas/`, `.gitignore` y el repositorio
+  si faltan, y devuelve el resumen del proyecto.
+- `importar_plano(file_path)`: copia el DXF/DWG a `planos/`, lo deja activo y devuelve las capas
+  y las unidades detectadas con su evidencia.
+- `proponer_mapeo_capas`: rol, confianza y evidencia por capa, con el mapeo listo para aplicar.
+- `aplicar_mapeo(mapping)`: guarda el mapeo y reconstruye el modelo, con IDs nuevos.
+- `confirmar_escala(muro_id=None, longitud_real=None)`: sin argumentos confirma las unidades
+  detectadas; con argumentos recalcula la escala.
+- `validar_modelo`, `listar_espacios` y `listar_vanos`.
+- `cuadro_de_areas`: con la escala confirmada, además escribe `salidas/cuadro_de_areas.csv`.
+- `comparar_versiones(version_a, version_b)`: hashes o referencias como `HEAD~1`.
+- `renderizar_vista` → `salidas/vista.png`.
+- `exportar_dxf` → `salidas/<proyecto>.dxf`.
+
+El recurso `archimind://proyecto/modelo` resume el último proyecto abierto o usado en la sesión:
+plano activo, escala, conteos, áreas, validación y últimas versiones. Los errores previstos
+llegan al cliente con su mensaje en español (`ToolError`). Las pruebas de integración
+(`tests/integration/`) llaman a cada herramienta en proceso con un cliente MCP en memoria, y
+una más arranca el servidor por stdio.
+
+La lógica de `core`:
 
 - **`read_drawing(path)`** abre un DXF con ezdxf, o un DWG mediante ODA File Converter si está
   instalado; si no, `DrawingError` explica cómo instalarlo o exportar a DXF. Devuelve un
@@ -132,5 +191,5 @@ dibuja a partir de él con ezdxf.
 
 En `schema`, `layer_mapping` solo admite esos nueve roles (`LayerRole`).
 
-Siguen pendientes los muros curvos, varios niveles por plano, el servidor MCP de `core`,
-`bloques`, `docs`, `vision` y los puentes con Rhino, AutoCAD e Illustrator.
+Siguen pendientes los muros curvos, varios niveles por plano, `bloques`, `docs`, `vision` y los
+puentes con Rhino, AutoCAD e Illustrator.

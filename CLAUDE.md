@@ -28,11 +28,13 @@ no comercial.
   nunca de un LLM.
 
 ## Reglas de los servidores MCP
-- SDK oficial de MCP para Python (FastMCP).
+- SDK oficial de MCP para Python, v2: `from mcp.server import MCPServer`, el antiguo FastMCP
+  (`mcp.server.fastmcp` ya no existe). Pruebas en proceso con `async with Client(mcp)`.
 - Nombres de herramientas en español y snake_case. Código, clases y variables en inglés.
 - Toda herramienta recibe `project_path`.
 - Las respuestas son resúmenes y rutas de archivo; las coordenadas se quedan en los archivos.
-- Errores con mensajes claros para el usuario final (p. ej., "Rhino no está abierto").
+- Errores con mensajes claros para el usuario final (p. ej., "Rhino no está abierto"), lanzados
+  como `ToolError`: es la única excepción cuyo mensaje el SDK hace llegar al cliente.
 - Máximo 12 herramientas por servidor. La lógica vive en el paquete; la herramienta es una
   envoltura delgada.
 
@@ -47,6 +49,8 @@ no comercial.
 - `uv run pytest` — todas las pruebas.
 - `uv run --package <nombre> pytest` — pruebas de un paquete (p. ej. `archimind-core`).
 - `uv run ruff check . && uv run mypy packages` — lint y tipos.
+- `uv run --package archimind-core archimind-core` — arranca el servidor de core por stdio (el
+  paquete se llama `archimind-core`, no `core`).
 
 ## Forma de trabajo
 - Plan antes de cambios grandes. Cambios pequeños, un commit por tarea.
