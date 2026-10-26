@@ -141,7 +141,7 @@ def _built_area(project: Project) -> float:
         walls_by_level[wall.level_id].append(wall)
     for level_id, walls in walls_by_level.items():
         shapes[level_id] += [wall_polygon(wall) for wall in walls]
-        shapes[level_id] += _corner_patches(walls)
+        shapes[level_id] += corner_patches(walls)
 
     total = 0.0
     for polygons in shapes.values():
@@ -151,7 +151,7 @@ def _built_area(project: Project) -> float:
     return float(total)
 
 
-def _corner_patches(walls: list[Wall]) -> list[Polygon]:
+def corner_patches(walls: list[Wall]) -> list[Polygon]:
     """Los extremos planos de dos muros que se encuentran en L dejan una muesca en la esquina
     exterior. La rellena la intersección de las franjas de ambos muros prolongadas a través de
     la esquina, a cualquier ángulo y espesor."""

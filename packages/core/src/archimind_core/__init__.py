@@ -9,6 +9,7 @@ from archimind_core.build_rules import (
 )
 from archimind_core.compare import AREA_CHANGE_TOL, SpaceChange, VersionDiff, compare_versions
 from archimind_core.drawing import Drawing, DrawingError, read_drawing
+from archimind_core.export_dxf import ExportError, export_dxf
 from archimind_core.history import (
     HistoryError,
     Version,
@@ -45,6 +46,7 @@ from archimind_core.quantities import (
     opening_counts,
     wall_quantities,
 )
+from archimind_core.render import draw_model, render_model
 from archimind_core.scale import ScaleConfirmation, ScaleError, confirm_scale, rescale
 from archimind_core.units import DrawingUnits, detect_units
 
@@ -60,6 +62,7 @@ __all__ = [
     "Drawing",
     "DrawingError",
     "DrawingUnits",
+    "ExportError",
     "HistoryError",
     "LayerProposal",
     "LayerRules",
@@ -86,7 +89,9 @@ __all__ = [
     "compare_versions",
     "confirm_scale",
     "detect_units",
+    "draw_model",
     "export_area_table_csv",
+    "export_dxf",
     "import_drawing",
     "init_repo",
     "layer_inventory",
@@ -102,6 +107,7 @@ __all__ = [
     "propose_mapping",
     "read_drawing",
     "recent_versions",
+    "render_model",
     "rescale",
     "wall_quantities",
 ]

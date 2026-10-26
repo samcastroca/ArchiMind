@@ -116,6 +116,15 @@ dibuja a partir de él con ezdxf.
   - `wall_quantities(project)`: metros lineales de eje por espesor medido (redondeado al mm, sin
     llevarlo a los habituales), vanos incluidos.
   - `opening_counts(project)`: cantidad de vanos por tipo, ancho y alto.
+- **`render_model(project, png)`** dibuja la planta del modelo en metros: espacios rellenos con
+  su nombre y su área, muros en azul y vanos en naranja, y la marca PRELIMINAR si la escala no
+  está confirmada. `draw_model(ax, project, k)` hace el mismo dibujo sobre unos ejes ya creados
+  (lo usa `scripts/render_model.py` encima del DXF).
+- **`export_dxf(project, ruta)`** escribe un DXF R2010 en metros: los muros como el contorno de
+  su material con los vanos recortados (`A-MURO`), los vanos (`A-PUERTA`, `A-VENTANA`,
+  `A-VANO`), los espacios (`A-ESPACIO`), sus nombres (`A-TEXTO`) y sus áreas (`A-AREA`). Con la
+  escala sin confirmar lanza `ExportError` y no escribe nada. Al volver a importarlo con
+  `build_model` sale el mismo modelo.
 - **`compare_versions(model_a, model_b)`** empareja por ID las dos versiones y devuelve los
   espacios cuya área cambia más de 0.5 %, los muros añadidos, eliminados y movidos (eje o
   espesor distinto en más de 0.001 m) y los vanos modificados (muro, tipo, bloque o cualquier
