@@ -35,8 +35,7 @@ def build_document(carpentry: Carpentry) -> Drawing:
     el origen y el alzado encima, alineado en x."""
     doc = ezdxf.new("R2010", setup=True, units=units.M)
     doc.header["$LWDISPLAY"] = 1
-    plan = doc.blocks.new(carpentry.name, base_point=(0, 0))
-    _add_strokes(plan, carpentry.plan)
+    plan = doc.blocks.get(add_plan_block(doc, carpentry))
     elevation = doc.blocks.new(elevation_block_name(carpentry), base_point=(0, 0))
     _add_strokes(elevation, carpentry.elevation)
 
@@ -49,6 +48,14 @@ def build_document(carpentry: Carpentry) -> Drawing:
     lift = bbox.extents(plan).extmax.y + ELEVATION_GAP_M - bbox.extents(elevation).extmin.y
     msp.add_blockref(elevation.name, (0, lift), dxfattribs={"layer": ELEVATION_LAYER})
     return doc
+
+
+def add_plan_block(doc: Drawing, carpentry: Carpentry) -> str:
+    """Define en `doc` el BLOCK de la planta, si aún no está, y devuelve su nombre. Dos
+    carpinterías con el mismo nombre son la misma: se define una vez."""
+    if carpentry.name not in doc.blocks:
+        _add_strokes(doc.blocks.new(carpentry.name, base_point=(0, 0)), carpentry.plan)
+    return carpentry.name
 
 
 def export_dxf(carpentry: Carpentry, path: str | Path) -> Path:

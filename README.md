@@ -283,10 +283,20 @@ todavía no está:
   cercano que la corta (en L o en T) o hacia el extremo del muro; la corrediza corre hacia el lado
   con más muro libre. El bloque se inserta sin espejar: con adentro a la izquierda del eje, en el
   inicio del vano con el ángulo del eje; a la derecha, en el final y girado 180°.
+- **`insert_blocks(carpeta, asignaciones, catálogo)`** parte del plano que exporta core
+  (`salidas/<proyecto>.dxf`) y exige la escala confirmada. `asignaciones` va por vano; sin ellas,
+  los vanos de puerta y ventana que aún no tienen bloque. Por cada vano con carpintería —la nueva
+  y la que el modelo ya tenía, regenerada desde sus parámetros— quita el rectángulo del vano y
+  pone el INSERT del bloque de planta, rotado y en la capa de su tipo; cada bloque se define una
+  vez. Escribe `salidas/<proyecto>-carpinteria.dxf` y, con carpintería nueva,
+  `salidas/borrador_bloques.json` para `asignar_bloques`. Si un vano no calza o el plano no
+  coincide con el modelo, no escribe nada; un bloque del modelo que ya no mide lo que su vano se
+  deja fuera con aviso.
 - **Salidas**:
   - `export_dxf`: un R2010 en metros con el BLOCK de la planta y el `<nombre>-ALZADO`. Las
     entidades van en la capa 0 con color BYBLOCK y grosor fijo, insertadas en A-PUERTA o
-    A-VENTANA y en A-ALZADO.
+    A-VENTANA y en A-ALZADO. `add_plan_block(doc, carpentry)` define el de la planta en otro
+    documento.
   - `export_svg`: a 1:20, con los grosores reales en mm.
   - `export_3dm`: con rhino3dm; las piezas son extrusiones en las capas Marco y Hoja, y los
     vidrios, superficies en la capa Vidrio.
