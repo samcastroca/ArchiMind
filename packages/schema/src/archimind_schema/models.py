@@ -5,7 +5,7 @@ import re
 from collections.abc import Iterable
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
 
 LENGTH_TOL = 0.001
 ANGLE_TOL_DEG = 0.5
@@ -15,6 +15,8 @@ WALL_THICKNESSES = (0.10, 0.12, 0.15, 0.20, 0.25)
 LayerRole = Literal[
     "walls", "doors", "windows", "text", "dimensions", "axes", "furniture", "ignore", "mixed"
 ]
+# Lado del eje del muro, recorrido de su inicio a su final.
+AxisSide = Literal["left", "right"]
 
 Point2D = tuple[float, float]
 
@@ -62,6 +64,26 @@ class Opening(_Model):
     height: float = Field(gt=0)
     sill_height: float = Field(ge=0)
     block_id: str | None = None
+    # Hacia qué lado del eje mira el «adentro» (+y) del bloque insertado.
+    block_side: AxisSide | None = None
+
+
+class BlockDefinition(_Model):
+    """Una carpintería generada por archimind-bloques. `parameters` son sus parámetros completos,
+    con el perfil: bastan para regenerar el bloque aunque el catálogo cambie. Para schema son
+    opacos; `width` y `height` se repiten para compararlos con los del vano."""
+
+    name: str = Field(min_length=1)
+    kind: Literal["door", "window"]
+    width: float = Field(gt=0)
+    height: float = Field(gt=0)
+    parameters: dict[str, JsonValue]
+
+
+class Block(BlockDefinition):
+    """Bloque del proyecto: lo comparten todos los vanos que llevan la misma carpintería."""
+
+    id: str
 
 
 class SpacePolygon(_Model):
@@ -98,6 +120,7 @@ class Project(_Model):
     walls: list[Wall] = Field(default_factory=list)
     openings: list[Opening] = Field(default_factory=list)
     spaces: list[Space] = Field(default_factory=list)
+    blocks: list[Block] = Field(default_factory=list)
     annotations: list[Annotation] = Field(default_factory=list)
     next_ids: dict[str, int] = Field(default_factory=lambda: dict.fromkeys(ID_PREFIXES, 1))
 
@@ -117,11 +140,12 @@ class Project(_Model):
 
     def _used_ids(self) -> list[str]:
         """IDs bien formados en uso; los mal formados los reporta `validate`."""
-        entities: Iterable[Level | Wall | Opening | Space] = [
+        entities: Iterable[Level | Wall | Opening | Space | Block] = [
             *self.levels,
             *self.walls,
             *self.openings,
             *self.spaces,
+            *self.blocks,
         ]
         ids = [entity.id for entity in entities]
         ids += [o.block_id for o in self.openings if o.block_id is not None]

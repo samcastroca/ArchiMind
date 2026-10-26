@@ -12,6 +12,7 @@ from archimind_schema.geometry import wall_length, wall_polygon
 from archimind_schema.models import (
     LENGTH_TOL,
     WALL_THICKNESSES,
+    Block,
     Level,
     Opening,
     Project,
@@ -40,6 +41,7 @@ def validate(project: Project) -> list[Problem]:
         *_space_polygons(project),
         *_space_overlaps(project),
         *_openings(project),
+        *_blocks(project),
         *_thicknesses(project),
         *_open_joints(project),
         *_scale(project),
@@ -55,11 +57,12 @@ def _warning(code: str, ids: list[str], message: str) -> Problem:
 
 
 def _duplicate_ids(project: Project) -> Iterator[Problem]:
-    entities: list[Level | Wall | Opening | Space] = [
+    entities: list[Level | Wall | Opening | Space | Block] = [
         *project.levels,
         *project.walls,
         *project.openings,
         *project.spaces,
+        *project.blocks,
     ]
     counts = Counter(entity.id for entity in entities)
     for entity_id, count in counts.items():
@@ -73,7 +76,13 @@ def _id_prefixes(project: Project) -> Iterator[Problem]:
         *(("muro", wall.id) for wall in project.walls),
         *(("vano", opening.id) for opening in project.openings),
         *(("esp", space.id) for space in project.spaces),
-        *(("blq", o.block_id) for o in project.openings if o.block_id is not None),
+        # Cada ID de bloque una vez, aunque lo usen varios vanos y figure en `blocks`.
+        *dict.fromkeys(
+            [
+                *(("blq", o.block_id) for o in project.openings if o.block_id is not None),
+                *(("blq", block.id) for block in project.blocks),
+            ]
+        ),
     ]
     for prefix, entity_id in typed_ids:
         if not id_pattern(prefix).match(entity_id):
@@ -95,12 +104,19 @@ def _references(project: Project) -> Iterator[Problem]:
                 [item.id],
                 f"{item.id} apunta al nivel inexistente {item.level_id}",
             )
+    block_ids = {block.id for block in project.blocks}
     for opening in project.openings:
         if opening.wall_id not in wall_ids:
             yield _error(
                 "muro_inexistente",
                 [opening.id],
                 f"{opening.id} apunta al muro inexistente {opening.wall_id}",
+            )
+        if opening.block_id is not None and opening.block_id not in block_ids:
+            yield _error(
+                "bloque_inexistente",
+                [opening.id],
+                f"{opening.id} apunta al bloque inexistente {opening.block_id}",
             )
 
 
@@ -161,6 +177,38 @@ def _openings(project: Project) -> Iterator[Problem]:
                 "vanos_superpuestos",
                 [a.id, b.id],
                 f"los vanos {a.id} y {b.id} se superponen en el muro {a.wall_id}",
+            )
+
+
+def _blocks(project: Project) -> Iterator[Problem]:
+    blocks = {block.id: block for block in project.blocks}
+    for opening in project.openings:
+        if (opening.block_id is None) != (opening.block_side is None):
+            yield _error(
+                "bloque_sin_lado",
+                [opening.id],
+                f"{opening.id} debe tener a la vez el bloque y el lado del muro hacia el que mira",
+            )
+        block = blocks.get(opening.block_id) if opening.block_id is not None else None
+        if block is None:
+            continue
+        if opening.kind != block.kind:
+            yield _error(
+                "bloque_de_otro_tipo",
+                [opening.id, block.id],
+                f"{opening.id} es de tipo {opening.kind} y su bloque {block.id} es de tipo "
+                f"{block.kind}",
+            )
+        elif (
+            abs(opening.width - block.width) > LENGTH_TOL
+            or abs(opening.height - block.height) > LENGTH_TOL
+        ):
+            yield _warning(
+                "bloque_desajustado",
+                [opening.id, block.id],
+                f"el bloque {block.id} mide {block.width:.3f} × {block.height:.3f} m y el vano "
+                f"{opening.id} {opening.width:.3f} × {opening.height:.3f} m: hay que volver a "
+                "insertar su carpintería",
             )
 
 

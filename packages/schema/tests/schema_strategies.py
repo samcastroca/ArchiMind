@@ -1,10 +1,11 @@
 """Estrategias hypothesis que generan entidades y proyectos válidos."""
 
 import math
-from typing import get_args
+from typing import Literal, get_args
 
 from archimind_schema import (
     Annotation,
+    Block,
     LayerRole,
     Level,
     Opening,
@@ -103,16 +104,32 @@ def projects(draw: st.DrawFn) -> Project:
         project.walls.append(wall)
         for _ in range(draw(st.integers(0, 2))):
             width = wall_length(wall) * draw(st.floats(0.05, 0.5))
+            kind: Literal["door", "window", "void"] = draw(
+                st.sampled_from(["door", "window", "void"])
+            )
+            height = draw(heights)
+            block = None
+            if kind in ("door", "window") and draw(st.booleans()):
+                block = Block(
+                    id=new_id(project, "blq"),
+                    name=draw(st.text(min_size=1, max_size=20)),
+                    kind=kind,
+                    width=width,
+                    height=height,
+                    parameters={"type": draw(st.text(max_size=10)), "width": width},
+                )
+                project.blocks.append(block)
             project.openings.append(
                 Opening(
                     id=new_id(project, "vano"),
                     wall_id=wall.id,
-                    kind=draw(st.sampled_from(["door", "window", "void"])),
+                    kind=kind,
                     offset=(wall_length(wall) - width) * draw(fractions),
                     width=width,
-                    height=draw(heights),
+                    height=height,
                     sill_height=draw(st.floats(0, 1.5)),
-                    block_id=new_id(project, "blq") if draw(st.booleans()) else None,
+                    block_id=block.id if block else None,
+                    block_side=draw(st.sampled_from(["left", "right"])) if block else None,
                 )
             )
     for _ in range(draw(st.integers(0, 4))):

@@ -73,8 +73,15 @@ confirmar_escala → consultas, vista y exportación.
 Está implementado `packages/schema`, el contrato del que dependen los demás paquetes, y en
 `packages/core` la importación de planos con su servidor MCP. `schema`:
 
-- **Modelo semántico** (Pydantic v2): proyecto, niveles, muros, vanos, espacios y anotaciones, en
-  metros. Pydantic comprueba la forma y los tipos.
+- **Modelo semántico** (Pydantic v2): proyecto, niveles, muros, vanos, espacios, bloques y
+  anotaciones, en metros. Pydantic comprueba la forma y los tipos.
+- **Bloques**: cada `Block` (`blq-`) guarda el nombre, el tipo (puerta o ventana), el ancho, el
+  alto y los parámetros completos de su carpintería, con el perfil, para regenerarla aunque cambie
+  el catálogo. Los vanos con la misma carpintería comparten bloque; cada vano guarda `block_id` y
+  `block_side`, el lado del eje (recorrido de inicio a fin) hacia el que mira el «adentro» del
+  bloque.
+- **Borradores** (`BlocksDraft`): la carpintería que `bloques` propone para unos vanos, en un JSON
+  de la carpeta del proyecto, para que core la valide y la aplique.
 - **IDs inéditos** con prefijo (`niv-`, `muro-`, `vano-`, `esp-`, `blq-`): `new_id` usa un contador
   por prefijo que solo avanza y se guarda con el modelo.
 - **Geometría derivada** con shapely: longitud y huella de muros, huella de vanos
@@ -82,10 +89,12 @@ Está implementado `packages/schema`, el contrato del que dependen los demás pa
 - **Persistencia atómica** de `modelo.json`: `load_project` / `save_project`.
 - **`validate(project)`**: devuelve todos los problemas del modelo a la vez, cada uno con código,
   severidad (`error` | `warning`), IDs afectados y mensaje en español. Son errores: IDs repetidos
-  o mal formados, referencias a niveles o muros inexistentes, polígonos inválidos, espacios
-  superpuestos, vanos fuera del muro o superpuestos y espesor ≤ 0. Son avisos: espesor fuera de
-  los habituales, unión abierta (extremo de muro a menos de 5 cm de otro sin tocarlo) y escala no
-  confirmada, que marca las cantidades como preliminares.
+  o mal formados, referencias a niveles, muros o bloques inexistentes, polígonos inválidos,
+  espacios superpuestos, vanos fuera del muro o superpuestos, espesor ≤ 0, vano con bloque y sin
+  lado (o al revés) y bloque de puerta en un vano de ventana (o al revés). Son avisos: espesor
+  fuera de los habituales, unión abierta (extremo de muro a menos de 5 cm de otro sin tocarlo),
+  bloque que no mide lo que su vano (p. ej. tras recalcular la escala) y escala no confirmada, que
+  marca las cantidades como preliminares.
 
 Casos golden para probar importadores, en `tests/golden/<caso>/` (`input.dxf`, `expected.json` e
 `input.png`): `rect_simple`, `apto_2hab`, `apto_capas_caoticas`, `en_l`, `muros_linea_doble` y

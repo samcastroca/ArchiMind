@@ -1,7 +1,7 @@
 from typing import Any
 
 import pytest
-from archimind_schema import Level, Opening, Problem, Project, Space, Wall, validate
+from archimind_schema import Block, Level, Opening, Problem, Project, Space, Wall, validate
 from hypothesis import given
 from schema_strategies import projects
 
@@ -109,9 +109,70 @@ def test_prefijo_invalido(path: tuple[str, int, str], value: str, bad_id: str) -
 
 
 def test_prefijo_valido_con_bloque() -> None:
+    assert "prefijo_invalido" not in _codes(_with_block())
+
+
+def _with_block(**changes: Any) -> dict[str, Any]:
+    """La puerta del proyecto base con su bloque: tampoco tiene ningún problema."""
     data = _data()
-    data["openings"][0]["block_id"] = "blq-0001"
-    assert "prefijo_invalido" not in _codes(data)
+    block = {
+        "id": "blq-0001",
+        "name": "PUERTA-BATIENTE-900x2100",
+        "kind": "door",
+        "width": 0.9,
+        "height": 2.1,
+        "parameters": {"type": "swing_door", "hand": "left"},
+    }
+    data["blocks"] = [block | changes]
+    data["openings"][0] |= {"block_id": "blq-0001", "block_side": "left"}
+    return data
+
+
+def test_vano_con_bloque_sin_problemas() -> None:
+    assert _problems(_with_block()) == []
+
+
+def test_bloque_con_id_mal_formado() -> None:
+    data = _with_block(id="bloque-1")
+    data["openings"][0]["block_id"] = "bloque-1"
+    assert _only(data, "prefijo_invalido").ids == ["bloque-1"]
+
+
+def test_bloque_repetido() -> None:
+    data = _with_block()
+    data["blocks"].append(dict(data["blocks"][0]))
+    assert _only(data, "id_repetido").ids == ["blq-0001"]
+
+
+def test_bloque_inexistente() -> None:
+    data = _with_block()
+    data["blocks"] = []
+    problem = _only(data, "bloque_inexistente")
+    assert (problem.severity, problem.ids) == ("error", ["vano-0001"])
+
+
+@pytest.mark.parametrize("field", ["block_id", "block_side"])
+def test_bloque_sin_lado(field: str) -> None:
+    data = _with_block()
+    data["openings"][0][field] = None
+    problem = _only(data, "bloque_sin_lado")
+    assert (problem.severity, problem.ids) == ("error", ["vano-0001"])
+
+
+def test_bloque_de_otro_tipo() -> None:
+    problem = _only(_with_block(kind="window"), "bloque_de_otro_tipo")
+    assert (problem.severity, problem.ids) == ("error", ["vano-0001", "blq-0001"])
+    assert "bloque_desajustado" not in _codes(_with_block(kind="window", width=2))
+
+
+@pytest.mark.parametrize(("field", "value"), [("width", 0.95), ("height", 2.0)])
+def test_bloque_desajustado(field: str, value: float) -> None:
+    problem = _only(_with_block(**{field: value}), "bloque_desajustado")
+    assert (problem.severity, problem.ids) == ("warning", ["vano-0001", "blq-0001"])
+
+
+def test_bloque_dentro_de_la_tolerancia() -> None:
+    assert _problems(_with_block(width=0.9005)) == []
 
 
 def test_nivel_inexistente() -> None:
@@ -257,11 +318,12 @@ def test_escala_no_confirmada() -> None:
 @given(projects())
 def test_proyectos_generados_sin_errores_de_integridad(project: Project) -> None:
     problems = validate(project)
-    entities: list[Level | Wall | Opening | Space] = [
+    entities: list[Level | Wall | Opening | Space | Block] = [
         *project.levels,
         *project.walls,
         *project.openings,
         *project.spaces,
+        *project.blocks,
     ]
     known = {entity.id for entity in entities}
     assert all(set(problem.ids) <= known for problem in problems)
@@ -274,6 +336,10 @@ def test_proyectos_generados_sin_errores_de_integridad(project: Project) -> None
         "vano_fuera_del_muro",
         "espesor_no_positivo",
         "espesor_inusual",
+        "bloque_inexistente",
+        "bloque_sin_lado",
+        "bloque_de_otro_tipo",
+        "bloque_desajustado",
     }
     assert not guaranteed & {problem.code for problem in problems}
     assert ("escala_no_confirmada" in {p.code for p in problems}) is not project.scale_confirmed
