@@ -264,6 +264,25 @@ todavía no está:
   El bloque tiene el origen en el borde del vano sobre el eje del muro, x a lo largo del muro e
   +y adentro. El marco va centrado en el eje. El alzado se ve desde afuera, con el origen en el
   piso. El nombre es determinista: `PUERTA-BATIENTE-900x2100-IZQ-ADENTRO-<resumen>`.
+- **Pedidos → parámetros** (`resolve.py`): prueba los tipos en orden y, para cada uno, los
+  perfiles en el orden del catálogo (el de preferencia), filtrados por clave o material; en la
+  corrediza sin número de hojas, de 2 a 4. Devuelve la primera combinación válida con notas de lo
+  elegido, o un `FitError` con el motivo de cada intento.
+  - `create_block(tipo, BlockRequest, catálogo)`: un bloque suelto. Solo el ancho es
+    obligatorio: el alto, el muro y el antepecho salen de `defaults`, el espesor de hoja del
+    fondo de hoja del perfil, y la mano y la apertura son `left` e `in`. Una opción que no es del
+    tipo (p. ej. hojas en una puerta) se rechaza.
+  - `fit_to_opening(proyecto, vano_id, Preferences, catálogo)`: la carpintería de un vano del
+    modelo, con su ancho, alto y antepecho tal cual y el espesor de su muro. Sin tipo, puerta
+    batiente (si no calza, doble) o ventana corrediza (si no, proyectante y si no, fija); un vano
+    sin tipo exige uno. Con la escala sin confirmar, la nota PRELIMINAR.
+- **El vano en su muro** (`site.py`): el lado de adentro es el recinto pedido (`opens_into`), el
+  único recinto en un muro exterior o, entre dos, el que no es circulación (categoría o nombre:
+  pasillo, hall, corredor…) y si no el más pequeño; sin recintos, la izquierda del eje, con aviso.
+  La mano por defecto mira la cara hacia la que abre la hoja: las bisagras van hacia el muro más
+  cercano que la corta (en L o en T) o hacia el extremo del muro; la corrediza corre hacia el lado
+  con más muro libre. El bloque se inserta sin espejar: con adentro a la izquierda del eje, en el
+  inicio del vano con el ángulo del eje; a la derecha, en el final y girado 180°.
 - **Salidas**:
   - `export_dxf`: un R2010 en metros con el BLOCK de la planta y el `<nombre>-ALZADO`. Las
     entidades van en la capa 0 con color BYBLOCK y grosor fijo, insertadas en A-PUERTA o
