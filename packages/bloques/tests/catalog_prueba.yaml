@@ -1,7 +1,14 @@
 # Catálogo fijo de las pruebas: completar catalog.yaml con medidas reales no las cambia.
+defaults:
+  wall_thickness: 0.15
+  sill_height: 0.90
+  door_height: 2.10
+  window_height: 1.20
+
 profiles:
   prueba:
     name: Perfil de prueba
+    material: aluminio
     types:
       [swing_door, double_swing_door, sliding_door, sliding_window, fixed_window, awning_window]
     frame: {face: 0.05, depth: 0.08}
@@ -14,6 +21,7 @@ profiles:
   # Marco de poco fondo: no le caben tres rieles.
   estrecho:
     name: Perfil estrecho
+    material: pvc
     types: [sliding_window, fixed_window]
     frame: {face: 0.04, depth: 0.06}
     sash: {face: 0.035, depth: 0.025}

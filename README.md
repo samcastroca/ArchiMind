@@ -251,8 +251,12 @@ todavía no está:
   límite del perfil y la salida: el ancho o el alto mínimo o máximo, menos o más hojas, u otro
   perfil.
 - **Catálogo**: `packages/bloques/catalog.yaml`, con valores de ejemplo que hay que completar con
-  medidas reales. Por perfil da los tipos que admite, el marco y la hoja (ancho visto y fondo),
-  el traslape, el vidrio y los límites de la hoja. `load_catalog(ruta)` lo valida.
+  medidas reales. Por perfil da el material, los tipos que admite, el marco y la hoja (ancho visto
+  y fondo), el traslape, el vidrio y los límites de la hoja. En `defaults`, las medidas de lo que
+  un pedido no dice: espesor de muro y antepecho de un bloque suelto, y alto de puerta y de
+  ventana. `load_catalog(ruta)` lo valida; `add_profile(ruta, clave, perfil)` agrega un perfil al
+  final del archivo (`profiles` es la última sección) conservando los comentarios, o lo deja
+  intacto si la clave ya existe.
 - **`generate(params)`** devuelve un `Carpentry`:
   - la planta y el alzado como trazos con su pluma (cortado, visto, fino u oculto);
   - las piezas macizas del marco y las hojas, y los vidrios.

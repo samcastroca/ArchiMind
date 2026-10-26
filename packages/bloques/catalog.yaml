@@ -2,8 +2,16 @@
 #
 # VALORES DE EJEMPLO: reemplazar por las medidas reales del fabricante.
 #
-# Cada perfil:
+# defaults: lo que se usa cuando un pedido no lo dice.
+#   wall_thickness  espesor del muro de un bloque suelto (en un vano, manda el muro del modelo).
+#   sill_height     antepecho de una ventana suelta (en un vano, manda el del modelo).
+#   door_height     alto de una puerta suelta si el pedido solo da el ancho.
+#   window_height   alto de una ventana suelta si el pedido solo da el ancho.
+#
+# profiles va al final: agregar_al_catalogo agrega los perfiles nuevos al final del archivo.
+# Cada perfil (la clave, en minúsculas y con guiones bajos):
 #   name         nombre que se muestra en los mensajes.
+#   material     material, para pedidos como «de aluminio» (se elige el primer perfil que cabe).
 #   types        tipos que admite: swing_door (puerta batiente), double_swing_door (batiente
 #                doble), sliding_door (puerta corrediza), sliding_window (ventana corrediza),
 #                fixed_window (ventana fija), awning_window (ventana proyectante).
@@ -15,10 +23,18 @@
 #   glass        espesor del vidrio.
 #   sash_width   ancho admisible de cada hoja (o del paño, en la ventana fija).
 #   sash_height  alto admisible de cada hoja (o del paño).
+# El espesor de hoja de una puerta, si el pedido no lo da, es el fondo de la hoja (sash.depth).
+
+defaults:
+  wall_thickness: 0.15
+  sill_height: 0.90
+  door_height: 2.10
+  window_height: 1.20
 
 profiles:
   aluminio_liviano:
     name: Aluminio serie liviana
+    material: aluminio
     types: [sliding_window, fixed_window, awning_window]
     frame: {face: 0.040, depth: 0.050}
     sash: {face: 0.035, depth: 0.020}
@@ -29,6 +45,7 @@ profiles:
 
   aluminio_pesado:
     name: Aluminio serie pesada
+    material: aluminio
     types: [sliding_window, fixed_window, awning_window, swing_door, sliding_door]
     frame: {face: 0.050, depth: 0.080}
     sash: {face: 0.045, depth: 0.025}
@@ -39,6 +56,7 @@ profiles:
 
   madera:
     name: Madera
+    material: madera
     types: [swing_door, double_swing_door, sliding_door, fixed_window, awning_window]
     frame: {face: 0.060, depth: 0.090}
     sash: {face: 0.050, depth: 0.040}

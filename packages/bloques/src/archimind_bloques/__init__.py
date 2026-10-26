@@ -6,7 +6,9 @@ from archimind_bloques.catalog import (
     CarpentryType,
     Catalog,
     CatalogError,
+    Defaults,
     Profile,
+    add_profile,
     load_catalog,
 )
 from archimind_bloques.export_3dm import export_3dm
@@ -36,6 +38,7 @@ __all__ = [
     "CarpentryType",
     "Catalog",
     "CatalogError",
+    "Defaults",
     "DoubleSwingDoor",
     "FixedWindow",
     "Pane",
@@ -46,6 +49,7 @@ __all__ = [
     "SlidingWindow",
     "Stroke",
     "SwingDoor",
+    "add_profile",
     "block_name",
     "build_document",
     "elevation_block_name",
