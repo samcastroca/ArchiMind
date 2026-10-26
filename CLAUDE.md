@@ -50,6 +50,8 @@ no comercial.
 
 ## Forma de trabajo
 - Plan antes de cambios grandes. Cambios pequeños, un commit por tarea.
+- README al día: si la tarea añade o quita una capacidad, cambia el contrato de `schema` o los
+  comandos, ese mismo commit actualiza la sección «Estado» de `README.md`.
 - APIs de ezdxf, rhino3dm, RhinoCommon, AutoCAD e Illustrator: siempre contra su documentación.
   Si hay duda, se dice explícitamente.
 - Si una tarea requiere un programa que no se puede ejecutar aquí (Rhino, AutoCAD, Illustrator),
