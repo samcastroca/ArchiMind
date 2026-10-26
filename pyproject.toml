@@ -28,6 +28,7 @@ archimind-vision = { workspace = true }
 [tool.pytest.ini_options]
 testpaths = ["packages", "tests"]
 addopts = "--import-mode=importlib"
+pythonpath = ["packages/schema/tests"]
 
 [tool.ruff]
 target-version = "py311"
@@ -39,3 +40,7 @@ select = ["E", "F", "I", "UP", "B"]
 [tool.mypy]
 python_version = "3.11"
 strict = true
+
+[[tool.mypy.overrides]]
+module = ["shapely", "shapely.*"]
+ignore_missing_imports = true
