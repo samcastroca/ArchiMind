@@ -90,6 +90,17 @@ dibuja a partir de él con ezdxf.
     `packages/core/config/build_rules.yaml`, con los umbrales, y se declara en el aviso
     `valores_por_defecto`.
 
+- **Cantidades**, todas calculadas con la geometría del modelo. Si la escala no está confirmada,
+  cada resultado lleva `preliminary` y la etiqueta «PRELIMINAR: escala sin confirmar».
+  - `area_table(project)`: por espacio, nombre, categoría y área; totales de área útil (todos
+    los espacios menos los balcones), área construida (el contorno exterior de esos espacios y
+    de los muros, con las esquinas en L rellenas y los patios incluidos) y área de balcones,
+    aparte. `export_area_table_csv(tabla, ruta)` la escribe en CSV (UTF-8 con BOM); con la
+    escala sin confirmar lanza `QuantitiesError` y no escribe nada.
+  - `wall_quantities(project)`: metros lineales de eje por espesor medido (redondeado al mm, sin
+    llevarlo a los habituales), vanos incluidos.
+  - `opening_counts(project)`: cantidad de vanos por tipo, ancho y alto.
+
 En `schema`, `layer_mapping` solo admite esos nueve roles (`LayerRole`).
 
 Siguen pendientes los muros curvos, varios niveles por plano, el servidor MCP de `core`,
