@@ -10,10 +10,13 @@ probarlo: `uv sync` y luego `uv run pytest`. Arquitectura, reglas y comandos en 
 ## Uso desde Claude Desktop
 
 Hace falta [uv](https://docs.astral.sh/uv/) y [git](https://git-scm.com/downloads) instalados.
-Se añade el servidor a `claude_desktop_config.json` (en Windows,
-`%APPDATA%\Claude\claude_desktop_config.json`; en macOS,
-`~/Library/Application Support/Claude/claude_desktop_config.json`), cambiando la ruta por la
-ruta absoluta de este repositorio:
+El servidor se declara en `claude_desktop_config.json`. Para abrirlo, en Claude Desktop:
+**Configuración → Desarrollador → Editar configuración**. Así se abre (o se crea) el archivo
+que la app lee de verdad: si Claude Desktop se instaló desde Microsoft Store, Windows redirige
+su carpeta y el archivo no está en `%APPDATA%\Claude\`.
+
+En el JSON hay que cambiar `C:\\RUTA\\ABSOLUTA\\A\\ArchiMind` por la ruta absoluta de este
+repositorio, con las barras invertidas dobles:
 
 ```json
 {
@@ -34,9 +37,33 @@ ruta absoluta de este repositorio:
 }
 ```
 
-Después hay que reiniciar Claude Desktop. Si no encuentra `uv`, en `command` va su ruta
-completa (`where uv` en Windows, `which uv` en macOS). Para probar el servidor sin Claude
-Desktop: `uv run --package archimind-core archimind-core` arranca y espera mensajes por stdio.
+Dónde va en el archivo:
+
+- **Archivo vacío o recién creado**: se pega el bloque completo.
+- **Archivo con contenido y sin `mcpServers`**: `mcpServers` se añade como una clave más del
+  objeto de primer nivel, junto a las que ya hay (p. ej. `preferences`), separada por una coma.
+- **Archivo que ya tiene `mcpServers`**: solo se añade la entrada `"archimind-core": {…}` dentro
+  de ese objeto, separada por una coma de los otros servidores. El archivo debe tener una sola
+  clave `mcpServers`.
+
+El resultado tiene esta forma, donde los `…` son lo que ya hubiera en el archivo:
+
+```
+{
+  "preferences": { … },
+  "mcpServers": {
+    "otro-servidor": { … },
+    "archimind-core": { "command": …, "args": […], "env": { … } }
+  }
+}
+```
+
+Después se guarda y se cierra Claude Desktop del todo (también desde la bandeja del sistema)
+antes de volver a abrirlo. En **Configuración → Desarrollador**, `archimind-core` debe aparecer
+en marcha; ahí mismo está el botón para abrir la carpeta de registros
+(`mcp-server-archimind-core.log`). Si no encuentra `uv`, en `command` va su ruta completa
+(`where uv` en Windows, `which uv` en macOS). Para probar el servidor sin Claude Desktop:
+`uv run --package archimind-core archimind-core` arranca y espera mensajes por stdio.
 
 Flujo de trabajo: abrir_proyecto → importar_plano → proponer_mapeo_capas → aplicar_mapeo →
 confirmar_escala → consultas, vista y exportación.

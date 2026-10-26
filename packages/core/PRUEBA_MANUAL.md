@@ -6,12 +6,14 @@ Claude Desktop. Estos pasos comprueban la integración real.
 ## Preparación
 
 1. En el repositorio: `uv sync`.
-2. Copiar el bloque de configuración del README (sección «Uso desde Claude Desktop») en
-   `%APPDATA%\Claude\claude_desktop_config.json`. En `--directory` va la ruta absoluta del
-   repositorio, con las barras invertidas dobles en JSON.
+2. En Claude Desktop, ir a **Configuración → Desarrollador → Editar configuración** y añadir
+   el bloque del README (sección «Uso desde Claude Desktop»), siguiendo las indicaciones de
+   dónde va en el archivo. En `--directory` va la ruta absoluta del repositorio, con las
+   barras invertidas dobles.
 3. Cerrar Claude Desktop del todo (también desde la bandeja del sistema) y volver a abrirlo.
-4. En el menú de herramientas del chat debe aparecer `archimind-core` con 12 herramientas. Si
-   no aparece, el registro está en `%APPDATA%\Claude\logs\mcp-server-archimind-core.log`.
+4. En **Configuración → Desarrollador**, `archimind-core` debe aparecer en marcha, y en el menú
+   de herramientas del chat, con 12 herramientas. Si no aparece, desde esa misma pantalla se
+   abre la carpeta de registros: el archivo es `mcp-server-archimind-core.log`.
 
 ## Flujo
 
