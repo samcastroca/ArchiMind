@@ -35,7 +35,7 @@ archimind-vision = { workspace = true }
 [tool.pytest.ini_options]
 testpaths = ["packages", "tests"]
 addopts = "--import-mode=importlib"
-pythonpath = ["packages/schema/tests", "tests/fixtures"]
+pythonpath = ["packages/schema/tests", "packages/bloques/tests", "tests/fixtures"]
 
 [tool.ruff]
 target-version = "py311"

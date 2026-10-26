@@ -218,5 +218,46 @@ La lógica de `core`:
 
 En `schema`, `layer_mapping` solo admite esos nueve roles (`LayerRole`).
 
-Siguen pendientes los muros curvos, varios niveles por plano, `bloques`, `docs`, `vision` y los
-puentes con Rhino, AutoCAD e Illustrator.
+**Generadores de carpintería** en `packages/bloques`, deterministas y sin LLM; el servidor MCP
+todavía no está:
+
+- **Tipos**: puerta batiente, batiente doble y corrediza; ventana corrediza de 2 a 4 hojas, fija
+  y proyectante. Cada uno es un modelo Pydantic (`SwingDoor`, `DoubleSwingDoor`, `SlidingDoor`,
+  `SlidingWindow`, `FixedWindow`, `AwningWindow`; la unión es `CarpentryParams`). Todos llevan
+  el ancho, el alto y el espesor de muro del vano y el perfil del catálogo. Según el tipo,
+  además:
+  - el espesor de hoja;
+  - la mano (`left`/`right`, mirando desde el lado hacia el que se mueve la hoja, EN 12519);
+  - la apertura o la cara del muro (`in`/`out`);
+  - el antepecho y el número de hojas.
+
+  Las combinaciones imposibles se rechazan con un mensaje que da la medida resultante, el
+  límite del perfil y la salida: el ancho o el alto mínimo o máximo, menos o más hojas, u otro
+  perfil.
+- **Catálogo**: `packages/bloques/catalog.yaml`, con valores de ejemplo que hay que completar con
+  medidas reales. Por perfil da los tipos que admite, el marco y la hoja (ancho visto y fondo),
+  el traslape, el vidrio y los límites de la hoja. `load_catalog(ruta)` lo valida.
+- **`generate(params)`** devuelve un `Carpentry`:
+  - la planta y el alzado como trazos con su pluma (cortado, visto, fino u oculto);
+  - las piezas macizas del marco y las hojas, y los vidrios.
+
+  El bloque tiene el origen en el borde del vano sobre el eje del muro, x a lo largo del muro e
+  +y adentro. El marco va centrado en el eje. El alzado se ve desde afuera, con el origen en el
+  piso. El nombre es determinista: `PUERTA-BATIENTE-900x2100-IZQ-ADENTRO-<resumen>`.
+- **Salidas**:
+  - `export_dxf`: un R2010 en metros con el BLOCK de la planta y el `<nombre>-ALZADO`. Las
+    entidades van en la capa 0 con color BYBLOCK y grosor fijo, insertadas en A-PUERTA o
+    A-VENTANA y en A-ALZADO.
+  - `export_svg`: a 1:20, con los grosores reales en mm.
+  - `export_3dm`: con rhino3dm; las piezas son extrusiones en las capas Marco y Hoja, y los
+    vidrios, superficies en la capa Vidrio.
+  - `render_png`: para revisión visual.
+- `uv run --package archimind-bloques pytest packages/bloques/tests/test_block_png.py` deja el
+  PNG, el DXF, el SVG y el .3dm de cada tipo en `tests/output/bloques/`.
+  `packages/bloques/PRUEBA_MANUAL.md` explica cómo revisarlos en Rhino y AutoCAD.
+
+Siguen pendientes:
+- los muros curvos y varios niveles por plano;
+- el servidor de `bloques` y su enlace con los vanos del modelo;
+- `docs` y `vision`;
+- los puentes con Rhino, AutoCAD e Illustrator.

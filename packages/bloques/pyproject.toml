@@ -3,7 +3,14 @@ name = "archimind-bloques"
 version = "0.1.0"
 description = "Servidor MCP archimind-bloques: bloques de carpintería."
 requires-python = ">=3.11"
-dependencies = ["archimind-schema"]
+dependencies = [
+    "archimind-schema",
+    "ezdxf>=1.4.5",
+    "matplotlib>=3.11.2",
+    "pydantic>=2",
+    "pyyaml>=6.0.3",
+    "rhino3dm>=8.35.0",
+]
 
 [tool.uv.sources]
 archimind-schema = { workspace = true }

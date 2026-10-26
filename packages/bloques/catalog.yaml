@@ -1,0 +1,48 @@
+# Catálogo de perfiles de carpintería. Todas las medidas en metros.
+#
+# VALORES DE EJEMPLO: reemplazar por las medidas reales del fabricante.
+#
+# Cada perfil:
+#   name         nombre que se muestra en los mensajes.
+#   types        tipos que admite: swing_door (puerta batiente), double_swing_door (batiente
+#                doble), sliding_door (puerta corrediza), sliding_window (ventana corrediza),
+#                fixed_window (ventana fija), awning_window (ventana proyectante).
+#   frame        marco: face = ancho visto en alzado, depth = fondo en planta.
+#   sash         hoja: face = ancho visto de montantes y travesaños, depth = fondo (en una
+#                ventana corrediza, el ancho de cada riel).
+#   overlap      traslape entre hojas corredizas; en la puerta corrediza, lo que la hoja
+#                sobrepasa el vano libre a cada lado y por arriba.
+#   glass        espesor del vidrio.
+#   sash_width   ancho admisible de cada hoja (o del paño, en la ventana fija).
+#   sash_height  alto admisible de cada hoja (o del paño).
+
+profiles:
+  aluminio_liviano:
+    name: Aluminio serie liviana
+    types: [sliding_window, fixed_window, awning_window]
+    frame: {face: 0.040, depth: 0.050}
+    sash: {face: 0.035, depth: 0.020}
+    overlap: 0.025
+    glass: 0.004
+    sash_width: {min: 0.30, max: 1.20}
+    sash_height: {min: 0.30, max: 1.80}
+
+  aluminio_pesado:
+    name: Aluminio serie pesada
+    types: [sliding_window, fixed_window, awning_window, swing_door, sliding_door]
+    frame: {face: 0.050, depth: 0.080}
+    sash: {face: 0.045, depth: 0.025}
+    overlap: 0.030
+    glass: 0.006
+    sash_width: {min: 0.40, max: 1.50}
+    sash_height: {min: 0.30, max: 2.40}
+
+  madera:
+    name: Madera
+    types: [swing_door, double_swing_door, sliding_door, fixed_window, awning_window]
+    frame: {face: 0.060, depth: 0.090}
+    sash: {face: 0.050, depth: 0.040}
+    overlap: 0.030
+    glass: 0.004
+    sash_width: {min: 0.35, max: 1.00}
+    sash_height: {min: 0.30, max: 2.40}
