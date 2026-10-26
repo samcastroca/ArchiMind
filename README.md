@@ -26,5 +26,18 @@ paquetes:
   los habituales, unión abierta (extremo de muro a menos de 5 cm de otro sin tocarlo) y escala no
   confirmada, que marca las cantidades como preliminares.
 
+Casos golden para probar importadores, en `tests/golden/<caso>/` (`input.dxf`, `expected.json` e
+`input.png`): `rect_simple`, `apto_2hab`, `apto_capas_caoticas`, `en_l`, `muros_linea_doble` y
+`milimetros`. El modelo esperado está escrito a mano en `tests/fixtures/cases.py` y el DXF se
+dibuja a partir de él con ezdxf.
+
+- `uv run python tests/fixtures/generate.py [--caso X] --force` regenera los casos (sin `--force`
+  no sobrescribe nada).
+- `assert_matches_golden(project, caso)` (en `tests/fixtures/golden.py`, importable desde
+  cualquier prueba) compara con tolerancia: coordenadas ±1 cm, áreas ±0.5 %, mismos conteos de
+  muros y vanos y mismos nombres de espacios; los IDs pueden diferir. Un muro es un tramo recto
+  continuo de eje, sin partir en las uniones en T.
+- `uv run python scripts/render_dxf.py plano.dxf [salida.png]` renderiza cualquier DXF a PNG.
+
 Siguen pendientes `core`, `bloques`, `docs`, `vision` y los puentes con Rhino, AutoCAD e
 Illustrator.

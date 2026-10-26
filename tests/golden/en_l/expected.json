@@ -1,0 +1,315 @@
+{
+  "id": "en_l",
+  "name": "en_l",
+  "units": "m",
+  "scale_confirmed": true,
+  "source_files": [],
+  "layer_mapping": {},
+  "levels": [
+    {
+      "id": "niv-0001",
+      "name": "Planta baja",
+      "elevation": 0.0,
+      "default_height": 2.6
+    }
+  ],
+  "walls": [
+    {
+      "id": "muro-0001",
+      "level_id": "niv-0001",
+      "axis": [
+        [
+          0.0,
+          0.0
+        ],
+        [
+          10.0,
+          0.0
+        ]
+      ],
+      "thickness": 0.2,
+      "height": null,
+      "source_layer": "A-MURO"
+    },
+    {
+      "id": "muro-0002",
+      "level_id": "niv-0001",
+      "axis": [
+        [
+          10.0,
+          0.0
+        ],
+        [
+          10.0,
+          4.0
+        ]
+      ],
+      "thickness": 0.2,
+      "height": null,
+      "source_layer": "A-MURO"
+    },
+    {
+      "id": "muro-0003",
+      "level_id": "niv-0001",
+      "axis": [
+        [
+          10.0,
+          4.0
+        ],
+        [
+          6.0,
+          4.0
+        ]
+      ],
+      "thickness": 0.2,
+      "height": null,
+      "source_layer": "A-MURO"
+    },
+    {
+      "id": "muro-0004",
+      "level_id": "niv-0001",
+      "axis": [
+        [
+          6.0,
+          4.0
+        ],
+        [
+          4.0,
+          6.0
+        ]
+      ],
+      "thickness": 0.2,
+      "height": null,
+      "source_layer": "A-MURO"
+    },
+    {
+      "id": "muro-0005",
+      "level_id": "niv-0001",
+      "axis": [
+        [
+          4.0,
+          6.0
+        ],
+        [
+          4.0,
+          10.0
+        ]
+      ],
+      "thickness": 0.2,
+      "height": null,
+      "source_layer": "A-MURO"
+    },
+    {
+      "id": "muro-0006",
+      "level_id": "niv-0001",
+      "axis": [
+        [
+          4.0,
+          10.0
+        ],
+        [
+          0.0,
+          10.0
+        ]
+      ],
+      "thickness": 0.2,
+      "height": null,
+      "source_layer": "A-MURO"
+    },
+    {
+      "id": "muro-0007",
+      "level_id": "niv-0001",
+      "axis": [
+        [
+          0.0,
+          10.0
+        ],
+        [
+          0.0,
+          0.0
+        ]
+      ],
+      "thickness": 0.2,
+      "height": null,
+      "source_layer": "A-MURO"
+    },
+    {
+      "id": "muro-0008",
+      "level_id": "niv-0001",
+      "axis": [
+        [
+          0.0,
+          5.0
+        ],
+        [
+          5.0,
+          5.0
+        ]
+      ],
+      "thickness": 0.1,
+      "height": null,
+      "source_layer": "A-MURO"
+    }
+  ],
+  "openings": [
+    {
+      "id": "vano-0001",
+      "wall_id": "muro-0004",
+      "kind": "door",
+      "offset": 0.25,
+      "width": 0.9,
+      "height": 2.1,
+      "sill_height": 0.0,
+      "block_id": null
+    },
+    {
+      "id": "vano-0002",
+      "wall_id": "muro-0008",
+      "kind": "door",
+      "offset": 2.0,
+      "width": 0.8,
+      "height": 2.1,
+      "sill_height": 0.0,
+      "block_id": null
+    },
+    {
+      "id": "vano-0003",
+      "wall_id": "muro-0001",
+      "kind": "window",
+      "offset": 7.0,
+      "width": 2.0,
+      "height": 1.2,
+      "sill_height": 0.9,
+      "block_id": null
+    },
+    {
+      "id": "vano-0004",
+      "wall_id": "muro-0006",
+      "kind": "window",
+      "offset": 1.0,
+      "width": 2.0,
+      "height": 1.2,
+      "sill_height": 0.9,
+      "block_id": null
+    },
+    {
+      "id": "vano-0005",
+      "wall_id": "muro-0007",
+      "kind": "window",
+      "offset": 7.0,
+      "width": 1.5,
+      "height": 1.2,
+      "sill_height": 0.9,
+      "block_id": null
+    }
+  ],
+  "spaces": [
+    {
+      "id": "esp-0001",
+      "level_id": "niv-0001",
+      "name": "Estar",
+      "polygon": {
+        "exterior": [
+          [
+            0.1,
+            0.1
+          ],
+          [
+            9.9,
+            0.1
+          ],
+          [
+            9.9,
+            3.9
+          ],
+          [
+            5.95857864376269,
+            3.9
+          ],
+          [
+            4.908578643762691,
+            4.95
+          ],
+          [
+            0.1,
+            4.95
+          ]
+        ],
+        "holes": []
+      },
+      "category": "useful"
+    },
+    {
+      "id": "esp-0002",
+      "level_id": "niv-0001",
+      "name": "Dormitorio",
+      "polygon": {
+        "exterior": [
+          [
+            0.1,
+            5.05
+          ],
+          [
+            4.808578643762691,
+            5.05
+          ],
+          [
+            3.9,
+            5.95857864376269
+          ],
+          [
+            3.9,
+            9.9
+          ],
+          [
+            0.1,
+            9.9
+          ]
+        ],
+        "holes": []
+      },
+      "category": "useful"
+    }
+  ],
+  "annotations": [
+    {
+      "text": "Estar",
+      "position": [
+        5.0,
+        2.0
+      ],
+      "kind": "label"
+    },
+    {
+      "text": "Dormitorio",
+      "position": [
+        2.0,
+        7.5
+      ],
+      "kind": "label"
+    },
+    {
+      "text": "10.20",
+      "position": [
+        5.05,
+        -0.9
+      ],
+      "kind": "dimension"
+    },
+    {
+      "text": "10.20",
+      "position": [
+        -0.9,
+        5.05
+      ],
+      "kind": "dimension"
+    }
+  ],
+  "next_ids": {
+    "niv": 2,
+    "muro": 9,
+    "vano": 6,
+    "esp": 3,
+    "blq": 1
+  }
+}

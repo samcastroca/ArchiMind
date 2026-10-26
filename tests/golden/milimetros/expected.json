@@ -1,0 +1,421 @@
+{
+  "id": "milimetros",
+  "name": "milimetros",
+  "units": "m",
+  "scale_confirmed": true,
+  "source_files": [],
+  "layer_mapping": {},
+  "levels": [
+    {
+      "id": "niv-0001",
+      "name": "Planta baja",
+      "elevation": 0.0,
+      "default_height": 2.6
+    }
+  ],
+  "walls": [
+    {
+      "id": "muro-0001",
+      "level_id": "niv-0001",
+      "axis": [
+        [
+          0.0,
+          0.0
+        ],
+        [
+          8.5,
+          0.0
+        ]
+      ],
+      "thickness": 0.2,
+      "height": null,
+      "source_layer": "A-MURO"
+    },
+    {
+      "id": "muro-0002",
+      "level_id": "niv-0001",
+      "axis": [
+        [
+          8.5,
+          0.0
+        ],
+        [
+          8.5,
+          6.5
+        ]
+      ],
+      "thickness": 0.2,
+      "height": null,
+      "source_layer": "A-MURO"
+    },
+    {
+      "id": "muro-0003",
+      "level_id": "niv-0001",
+      "axis": [
+        [
+          8.5,
+          6.5
+        ],
+        [
+          0.0,
+          6.5
+        ]
+      ],
+      "thickness": 0.2,
+      "height": null,
+      "source_layer": "A-MURO"
+    },
+    {
+      "id": "muro-0004",
+      "level_id": "niv-0001",
+      "axis": [
+        [
+          0.0,
+          6.5
+        ],
+        [
+          0.0,
+          0.0
+        ]
+      ],
+      "thickness": 0.2,
+      "height": null,
+      "source_layer": "A-MURO"
+    },
+    {
+      "id": "muro-0005",
+      "level_id": "niv-0001",
+      "axis": [
+        [
+          3.5,
+          0.0
+        ],
+        [
+          3.5,
+          6.5
+        ]
+      ],
+      "thickness": 0.12,
+      "height": null,
+      "source_layer": "A-MURO"
+    },
+    {
+      "id": "muro-0006",
+      "level_id": "niv-0001",
+      "axis": [
+        [
+          0.0,
+          3.6
+        ],
+        [
+          3.5,
+          3.6
+        ]
+      ],
+      "thickness": 0.1,
+      "height": null,
+      "source_layer": "A-MURO"
+    },
+    {
+      "id": "muro-0007",
+      "level_id": "niv-0001",
+      "axis": [
+        [
+          3.5,
+          4.8
+        ],
+        [
+          5.5,
+          4.8
+        ]
+      ],
+      "thickness": 0.1,
+      "height": null,
+      "source_layer": "A-MURO"
+    },
+    {
+      "id": "muro-0008",
+      "level_id": "niv-0001",
+      "axis": [
+        [
+          5.5,
+          4.8
+        ],
+        [
+          5.5,
+          6.5
+        ]
+      ],
+      "thickness": 0.1,
+      "height": null,
+      "source_layer": "A-MURO"
+    }
+  ],
+  "openings": [
+    {
+      "id": "vano-0001",
+      "wall_id": "muro-0001",
+      "kind": "door",
+      "offset": 6.0,
+      "width": 0.9,
+      "height": 2.1,
+      "sill_height": 0.0,
+      "block_id": null
+    },
+    {
+      "id": "vano-0002",
+      "wall_id": "muro-0001",
+      "kind": "window",
+      "offset": 1.0,
+      "width": 1.5,
+      "height": 1.2,
+      "sill_height": 0.9,
+      "block_id": null
+    },
+    {
+      "id": "vano-0003",
+      "wall_id": "muro-0002",
+      "kind": "window",
+      "offset": 1.5,
+      "width": 2.0,
+      "height": 1.2,
+      "sill_height": 0.9,
+      "block_id": null
+    },
+    {
+      "id": "vano-0004",
+      "wall_id": "muro-0003",
+      "kind": "window",
+      "offset": 0.8,
+      "width": 1.5,
+      "height": 1.2,
+      "sill_height": 0.9,
+      "block_id": null
+    },
+    {
+      "id": "vano-0005",
+      "wall_id": "muro-0003",
+      "kind": "window",
+      "offset": 3.7,
+      "width": 0.6,
+      "height": 0.6,
+      "sill_height": 1.5,
+      "block_id": null
+    },
+    {
+      "id": "vano-0006",
+      "wall_id": "muro-0003",
+      "kind": "window",
+      "offset": 6.0,
+      "width": 1.5,
+      "height": 1.2,
+      "sill_height": 0.9,
+      "block_id": null
+    },
+    {
+      "id": "vano-0007",
+      "wall_id": "muro-0005",
+      "kind": "door",
+      "offset": 2.6,
+      "width": 0.8,
+      "height": 2.1,
+      "sill_height": 0.0,
+      "block_id": null
+    },
+    {
+      "id": "vano-0008",
+      "wall_id": "muro-0005",
+      "kind": "door",
+      "offset": 3.75,
+      "width": 0.8,
+      "height": 2.1,
+      "sill_height": 0.0,
+      "block_id": null
+    },
+    {
+      "id": "vano-0009",
+      "wall_id": "muro-0007",
+      "kind": "door",
+      "offset": 1.1,
+      "width": 0.7,
+      "height": 2.1,
+      "sill_height": 0.0,
+      "block_id": null
+    }
+  ],
+  "spaces": [
+    {
+      "id": "esp-0001",
+      "level_id": "niv-0001",
+      "name": "Habitación 1",
+      "polygon": {
+        "exterior": [
+          [
+            0.1,
+            3.65
+          ],
+          [
+            3.44,
+            3.65
+          ],
+          [
+            3.44,
+            6.4
+          ],
+          [
+            0.1,
+            6.4
+          ]
+        ],
+        "holes": []
+      },
+      "category": "useful"
+    },
+    {
+      "id": "esp-0002",
+      "level_id": "niv-0001",
+      "name": "Habitación 2",
+      "polygon": {
+        "exterior": [
+          [
+            0.1,
+            0.1
+          ],
+          [
+            3.44,
+            0.1
+          ],
+          [
+            3.44,
+            3.55
+          ],
+          [
+            0.1,
+            3.55
+          ]
+        ],
+        "holes": []
+      },
+      "category": "useful"
+    },
+    {
+      "id": "esp-0003",
+      "level_id": "niv-0001",
+      "name": "Baño",
+      "polygon": {
+        "exterior": [
+          [
+            3.56,
+            4.85
+          ],
+          [
+            5.45,
+            4.85
+          ],
+          [
+            5.45,
+            6.4
+          ],
+          [
+            3.56,
+            6.4
+          ]
+        ],
+        "holes": []
+      },
+      "category": "service"
+    },
+    {
+      "id": "esp-0004",
+      "level_id": "niv-0001",
+      "name": "Sala-comedor-cocina",
+      "polygon": {
+        "exterior": [
+          [
+            3.56,
+            0.1
+          ],
+          [
+            8.4,
+            0.1
+          ],
+          [
+            8.4,
+            6.4
+          ],
+          [
+            5.55,
+            6.4
+          ],
+          [
+            5.55,
+            4.75
+          ],
+          [
+            3.56,
+            4.75
+          ]
+        ],
+        "holes": []
+      },
+      "category": "useful"
+    }
+  ],
+  "annotations": [
+    {
+      "text": "Habitación 1",
+      "position": [
+        1.77,
+        5.0
+      ],
+      "kind": "label"
+    },
+    {
+      "text": "Habitación 2",
+      "position": [
+        1.77,
+        1.8
+      ],
+      "kind": "label"
+    },
+    {
+      "text": "Baño",
+      "position": [
+        4.0,
+        6.0
+      ],
+      "kind": "label"
+    },
+    {
+      "text": "Sala-comedor-cocina",
+      "position": [
+        6.0,
+        2.5
+      ],
+      "kind": "label"
+    },
+    {
+      "text": "8.70",
+      "position": [
+        4.25,
+        -0.9
+      ],
+      "kind": "dimension"
+    },
+    {
+      "text": "6.70",
+      "position": [
+        9.4,
+        3.25
+      ],
+      "kind": "dimension"
+    }
+  ],
+  "next_ids": {
+    "niv": 2,
+    "muro": 9,
+    "vano": 10,
+    "esp": 5,
+    "blq": 1
+  }
+}
