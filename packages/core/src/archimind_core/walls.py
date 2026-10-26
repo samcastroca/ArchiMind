@@ -28,7 +28,7 @@ from shapely.geometry.base import BaseGeometry
 
 from archimind_core.build_rules import BuildRules
 from archimind_core.extract import PlanContent
-from archimind_core.layer_roles import ParallelGroup, Placed, Segment, neighbours, parallel_groups
+from archimind_core.layer_roles import Segment, neighbours, parallel_groups
 
 MIN_SIN = math.sin(math.radians(ANGLE_TOL_DEG))
 
@@ -213,6 +213,25 @@ def _is_clear(segments: Sequence[Segment], strip: Polygon) -> bool:
 # --- 2. Pares de caras -----------------------------------------------------------------------
 
 
+@dataclass(frozen=True)
+class _FacePair:
+    """Dos caras enfrentadas, medidas en el marco propio del par (dirección media d, normal n):
+    `a` es la de menor offset y [s0, s1] lo que solapan."""
+
+    d: Point2D
+    n: Point2D
+    a: int
+    b: int
+    offset_a: float
+    offset_b: float
+    s0: float
+    s1: float
+
+    @property
+    def gap(self) -> float:
+        return self.offset_b - self.offset_a
+
+
 def pair_faces(
     faces: Sequence[Segment],
     layer: str,
@@ -220,37 +239,83 @@ def pair_faces(
     accept: Callable[[Polygon], bool],
 ) -> list[WallPiece]:
     """Tramos de muro de pares de caras paralelas. Los pares más próximos van primero y cada
-    trozo de cara se usa en un solo par."""
-    candidates: list[tuple[float, ParallelGroup, Placed, Placed, float, float]] = []
+    trozo de cara se usa en un solo par.
+
+    El grupo de paralelos solo sirve para encontrar vecinos: admite caras de otro muro hasta la
+    tolerancia angular, y en su marco común la franja de un par quedaría girada respecto de sus
+    propias caras."""
+    candidates = []
     for group in parallel_groups(faces, ANGLE_TOL_DEG):
         for position, a in enumerate(group.placed):
             for b in neighbours(group.placed, position, rules.max_thickness_m + LENGTH_TOL):
-                gap = b.offset - a.offset
-                s0, s1 = max(a.s0, b.s0), min(a.s1, b.s1)
-                if gap >= rules.min_thickness_m - LENGTH_TOL and s1 - s0 > LENGTH_TOL:
-                    candidates.append((gap, group, a, b, s0, s1))
+                pair = _face_pair(faces, a.index, b.index)
+                thick_enough = pair.gap >= rules.min_thickness_m - LENGTH_TOL
+                thin_enough = pair.gap <= rules.max_thickness_m + LENGTH_TOL
+                if thick_enough and thin_enough and pair.s1 - pair.s0 > LENGTH_TOL:
+                    candidates.append(pair)
     used: dict[int, list[tuple[float, float]]] = {}
     pieces = []
-    for gap, group, a, b, s0, s1 in sorted(candidates, key=lambda c: (c[0], c[4])):
-        if _taken(used, a.index, s0, s1) or _taken(used, b.index, s0, s1):
+    for pair in sorted(candidates, key=lambda p: (p.gap, p.s0)):
+        spans = {
+            index: _span_on(faces[index], pair, offset)
+            for index, offset in ((pair.a, pair.offset_a), (pair.b, pair.offset_b))
+        }
+        if any(_taken(used, index, span) for index, span in spans.items()):
             continue
-        d, n = group.direction, group.normal
+        d, n = pair.d, pair.n
         strip = Polygon(
             [
                 _at(d, n, s, t)
-                for s, t in ((s0, a.offset), (s1, a.offset), (s1, b.offset), (s0, b.offset))
+                for s, t in (
+                    (pair.s0, pair.offset_a),
+                    (pair.s1, pair.offset_a),
+                    (pair.s1, pair.offset_b),
+                    (pair.s0, pair.offset_b),
+                )
             ]
         )
         if not accept(strip):
             continue
-        used.setdefault(a.index, []).append((s0, s1))
-        used.setdefault(b.index, []).append((s0, s1))
-        mid = (a.offset + b.offset) / 2
-        pieces.append(WallPiece(_at(d, n, s0, mid), _at(d, n, s1, mid), gap, layer))
+        for index, span in spans.items():
+            used.setdefault(index, []).append(span)
+        mid = (pair.offset_a + pair.offset_b) / 2
+        pieces.append(WallPiece(_at(d, n, pair.s0, mid), _at(d, n, pair.s1, mid), pair.gap, layer))
     return pieces
 
 
-def _taken(used: dict[int, list[tuple[float, float]]], index: int, s0: float, s1: float) -> bool:
+def _face_pair(faces: Sequence[Segment], i: int, j: int) -> _FacePair:
+    di, dj = (_unit(faces[k].start, faces[k].end) for k in (i, j))
+    if _dot(di, dj) < 0:
+        dj = (-dj[0], -dj[1])
+    d = _unit((0.0, 0.0), (di[0] + dj[0], di[1] + dj[1]))
+    n = (-d[1], d[0])
+    (oi, si), (oj, sj) = (_place(faces[k], d, n) for k in (i, j))
+    if oj < oi:
+        (i, oi, si), (j, oj, sj) = (j, oj, sj), (i, oi, si)
+    return _FacePair(d, n, i, j, oi, oj, max(si[0], sj[0]), min(si[1], sj[1]))
+
+
+def _place(face: Segment, d: Point2D, n: Point2D) -> tuple[float, tuple[float, float]]:
+    """Offset del punto medio de la cara a lo largo de n y su extensión a lo largo de d."""
+    s = sorted(_dot(p, d) for p in (face.start, face.end))
+    offset = (_dot(face.start, n) + _dot(face.end, n)) / 2
+    return offset, (s[0], s[1])
+
+
+def _span_on(face: Segment, pair: _FacePair, offset: float) -> tuple[float, float]:
+    """Lo que el par usa de la cara, medido a lo largo de la propia cara: los marcos de dos
+    pares de una misma cara difieren, y sus coordenadas no son comparables entre sí."""
+    u = _unit(face.start, face.end)
+    ends = sorted(
+        _dot(_sub(_at(pair.d, pair.n, s, offset), face.start), u) for s in (pair.s0, pair.s1)
+    )
+    return ends[0], ends[1]
+
+
+def _taken(
+    used: dict[int, list[tuple[float, float]]], index: int, span: tuple[float, float]
+) -> bool:
+    s0, s1 = span
     return any(min(s1, u1) - max(s0, u0) > LENGTH_TOL for u0, u1 in used.get(index, []))
 
 

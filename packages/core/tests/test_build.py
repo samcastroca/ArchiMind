@@ -27,7 +27,7 @@ from cases import CASES, STANDARD, expected_project
 from dxf_writer import write_dxf
 from ezdxf.document import Drawing as DXFDocument
 from golden import GOLDEN_DIR, assert_matches, assert_matches_golden
-from hypothesis import given, settings
+from hypothesis import example, given, settings
 from hypothesis import strategies as st
 from shapely import LineString, MultiPolygon, Polygon, affinity
 
@@ -204,6 +204,10 @@ def test_rotated_room_with_a_door_is_rebuilt(
     lean=st.floats(-1.5, 1.5),
     at=st.floats(2.0, 4.0),
 )
+# Inclinaciones por debajo de la tolerancia angular: el tabique entra en el grupo de paralelos
+# de los muros laterales, y cada par de caras debe medirse en su propio marco.
+@example(t=0.15, lean=0.03125, at=2.0)
+@example(t=0.15, lean=-0.03125, at=2.0)
 def test_partition_meeting_both_walls_at_an_angle(t: float, lean: float, at: float) -> None:
     """Tabique de 0.10 de la cara sur a la norte, inclinado: dos uniones en T no rectas."""
     width, depth = 6.0, 4.0
