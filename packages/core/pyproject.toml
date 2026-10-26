@@ -1,0 +1,13 @@
+[project]
+name = "archimind-core"
+version = "0.1.0"
+description = "Servidor MCP archimind-core: único escritor del modelo semántico de un proyecto."
+requires-python = ">=3.11"
+dependencies = ["archimind-schema"]
+
+[tool.uv.sources]
+archimind-schema = { workspace = true }
+
+[build-system]
+requires = ["uv_build>=0.11,<0.12"]
+build-backend = "uv_build"
