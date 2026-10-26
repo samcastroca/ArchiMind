@@ -78,7 +78,7 @@ def piece_length(piece: DXFGraphic) -> float:
     return 0.0
 
 
-def _plain_text(entity: Text | MText) -> str:
+def plain_text(entity: Text | MText) -> str:
     if isinstance(entity, MText):
         # Con split=False, MText.plain_text siempre devuelve str.
         return str(entity.plain_text(split=False)).strip()
@@ -98,7 +98,7 @@ def layer_inventory(drawing: "Drawing") -> list[LayerSummary]:
             blocks.setdefault(layer, Counter())[entity.dxf.name] += 1
         if isinstance(entity, Text | MText):
             samples = texts.setdefault(layer, [])
-            text = _plain_text(entity)
+            text = plain_text(entity)
             if text and text not in samples and len(samples) < MAX_SAMPLE_TEXTS:
                 samples.append(text)
     return [

@@ -140,7 +140,7 @@ def _swing_arc(arc: Arc, k: float) -> SwingArc:
 
 
 @dataclass(frozen=True)
-class _Placed:
+class Placed:
     """Un tramo en el marco común de su grupo de paralelos."""
 
     index: int
@@ -149,11 +149,20 @@ class _Placed:
     s1: float
 
 
+@dataclass(frozen=True)
+class ParallelGroup:
+    """Tramos de una misma dirección, ordenados por offset, en el marco (dirección, normal)."""
+
+    direction: Point
+    normal: Point
+    placed: list[Placed]
+
+
 def _habitual_thickness(gap: float, tol: float) -> float | None:
     return next((t for t in WALL_THICKNESSES if abs(gap - t) <= tol), None)
 
 
-def _parallel_groups(segments: Sequence[Segment], angle_tol_deg: float) -> list[list[_Placed]]:
+def parallel_groups(segments: Sequence[Segment], angle_tol_deg: float) -> list[ParallelGroup]:
     """Tramos agrupados por dirección (± tolerancia) y ordenados por su offset normal."""
     angles = sorted(
         (math.degrees(math.atan2(s.end[1] - s.start[1], s.end[0] - s.start[0])) % 180, i)
@@ -177,12 +186,12 @@ def _parallel_groups(segments: Sequence[Segment], angle_tol_deg: float) -> list[
             seg = segments[i]
             s = [p[0] * d[0] + p[1] * d[1] for p in (seg.start, seg.end)]
             t = [p[0] * n[0] + p[1] * n[1] for p in (seg.start, seg.end)]
-            placed.append(_Placed(i, (t[0] + t[1]) / 2, min(s), max(s)))
-        placed_groups.append(sorted(placed, key=lambda p: p.offset))
+            placed.append(Placed(i, (t[0] + t[1]) / 2, min(s), max(s)))
+        placed_groups.append(ParallelGroup(d, n, sorted(placed, key=lambda p: p.offset)))
     return placed_groups
 
 
-def _neighbours(group: list[_Placed], position: int, max_gap: float) -> Iterable[_Placed]:
+def neighbours(group: list[Placed], position: int, max_gap: float) -> Iterable[Placed]:
     """Los tramos del grupo por encima de `position` a menos de `max_gap` de offset."""
     base = group[position].offset
     for other in group[position + 1 :]:
@@ -198,13 +207,13 @@ def find_windows(segments: Sequence[Segment], rules: LayerRules) -> list[tuple[i
     max_gap = max(WALL_THICKNESSES) + tol
     windows: list[tuple[int, int, int]] = []
     used: set[int] = set()
-    for group in _parallel_groups(segments, rules.angle_tolerance_deg):
-        for position, a in enumerate(group):
+    for group in parallel_groups(segments, rules.angle_tolerance_deg):
+        for position, a in enumerate(group.placed):
             if a.index in used:
                 continue
             same = [
                 b
-                for b in _neighbours(group, position, max_gap)
+                for b in neighbours(group.placed, position, max_gap)
                 if b.index not in used
                 and b.offset - a.offset > tol
                 and abs(b.s0 - a.s0) <= tol
@@ -233,9 +242,9 @@ def find_wall_pairs(segments: Sequence[Segment], rules: LayerRules) -> list[tupl
     tol = rules.length_tolerance_m
     max_gap = max(WALL_THICKNESSES) + tol
     pairs: list[tuple[int, int, float]] = []
-    for group in _parallel_groups(segments, rules.angle_tolerance_deg):
-        for position, a in enumerate(group):
-            for b in _neighbours(group, position, max_gap):
+    for group in parallel_groups(segments, rules.angle_tolerance_deg):
+        for position, a in enumerate(group.placed):
+            for b in neighbours(group.placed, position, max_gap):
                 thickness = _habitual_thickness(b.offset - a.offset, tol)
                 overlap = min(a.s1, b.s1) - max(a.s0, b.s0)
                 if thickness is not None and overlap > tol:

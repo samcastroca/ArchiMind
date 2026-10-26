@@ -29,7 +29,11 @@ def load_expected(case: str) -> Project:
 
 def assert_matches_golden(project: Project, case: str) -> None:
     """Falla con todas las diferencias a la vez frente a tests/golden/<case>/expected.json."""
-    expected = load_expected(case)
+    assert_matches(project, load_expected(case), f"el golden '{case}'")
+
+
+def assert_matches(project: Project, expected: Project, label: str = "el esperado") -> None:
+    """Como `assert_matches_golden`, frente a un modelo esperado en memoria."""
     failures = [
         *_compare_scalars(project, expected),
         *_compare_walls(project, expected),
@@ -37,9 +41,7 @@ def assert_matches_golden(project: Project, case: str) -> None:
         *_compare_spaces(project, expected),
     ]
     if failures:
-        raise AssertionError(
-            f"El modelo no coincide con el golden '{case}':\n- " + "\n- ".join(failures)
-        )
+        raise AssertionError(f"El modelo no coincide con {label}:\n- " + "\n- ".join(failures))
 
 
 def _compare_scalars(actual: Project, expected: Project) -> list[str]:

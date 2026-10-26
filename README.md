@@ -36,10 +36,11 @@ dibuja a partir de él con ezdxf.
 - `assert_matches_golden(project, caso)` (en `tests/fixtures/golden.py`, importable desde
   cualquier prueba) compara con tolerancia: coordenadas ±1 cm, áreas ±0.5 %, mismos conteos de
   muros y vanos y mismos nombres de espacios; los IDs pueden diferir. Un muro es un tramo recto
-  continuo de eje, sin partir en las uniones en T.
+  continuo de eje, sin partir en las uniones en T. `assert_matches(project, esperado)` hace lo
+  mismo frente a un modelo en memoria.
 - `uv run python scripts/render_dxf.py plano.dxf [salida.png]` renderiza cualquier DXF a PNG.
 
-`core` (por ahora solo la lógica, sin servidor MCP ni reconstrucción de muros):
+`core` (por ahora solo la lógica, sin servidor MCP):
 
 - **`read_drawing(path)`** abre un DXF con ezdxf, o un DWG mediante ODA File Converter si está
   instalado; si no, `DrawingError` explica cómo instalarlo o exportar a DXF. Devuelve un
@@ -66,8 +67,26 @@ dibuja a partir de él con ezdxf.
   `modelo.json` (lo reemplaza y añade el plano a `source_files`). Rechaza roles o capas que no
   existan. Si la carpeta no tiene modelo, crea uno mínimo con la escala confirmada solo si el
   plano declara sus unidades. `proposals_to_mapping` convierte la propuesta en mapeo.
+- **`build_model(drawing, mapping)`** reconstruye el modelo y devuelve un `BuildResult` con el
+  `Project` y sus problemas (los avisos de la reconstrucción más los de `validate`). No escribe
+  nada.
+  - Muros: las líneas de muro que cierran anillos forman el material; dos caras paralelas
+    separadas entre 0.05 y 0.50 m con material entre ambas dan un tramo (eje a media distancia,
+    espesor medido sin redondear). Los tramos colineales de igual espesor se unen a través de
+    las uniones y de los huecos, y cada extremo se lleva al eje del muro con el que forma una L
+    o una T, a cualquier ángulo. También lee polilíneas de eje con ancho constante; las líneas
+    abiertas sin ancho se avisan.
+  - Vanos: cada hueco del muro con su símbolo de puerta o ventana encima (líneas o bloque), con
+    offset y ancho medidos. Sin símbolo es un vano `void` con aviso; más largo de 3 m sin
+    símbolo, separa el muro en dos. Un bloque sobre un muro sin hueco crea el vano con aviso;
+    una puerta de líneas sin hueco solo se avisa.
+  - Espacios: el material más los vanos tapados se poligoniza; las caras que no son muro son
+    espacios, con el nombre del texto que cae dentro (sin texto o con varios, aviso).
+  - Lo que un plano 2D no transmite (nivel, alturas de vano, categoría) sale de
+    `packages/core/config/build_rules.yaml`, con los umbrales, y se declara en el aviso
+    `valores_por_defecto`.
 
 En `schema`, `layer_mapping` solo admite esos nueve roles (`LayerRole`).
 
-Siguen pendientes la reconstrucción de muros y el servidor MCP de `core`, `bloques`, `docs`,
-`vision` y los puentes con Rhino, AutoCAD e Illustrator.
+Siguen pendientes los muros curvos, varios niveles por plano, el servidor MCP de `core`,
+`bloques`, `docs`, `vision` y los puentes con Rhino, AutoCAD e Illustrator.

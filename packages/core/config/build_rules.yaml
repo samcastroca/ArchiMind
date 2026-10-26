@@ -1,0 +1,28 @@
+# Umbrales y valores por defecto para reconstruir el modelo desde un plano
+# (archimind_core.build). Longitudes en metros. Las tolerancias base (0.001 m y 0.5°) son las de
+# archimind_schema.
+
+# Separación entre dos caras paralelas para que formen un muro. El espesor medido se conserva.
+min_thickness_m: 0.05
+max_thickness_m: 0.50
+# Fracción de la franja entre dos caras que debe ser material del muro.
+material_share: 0.99
+# Holgura al alargar un extremo de muro hasta el eje de otro en una unión en L o en T.
+joint_slack_m: 0.01
+# Un hueco sin símbolo más largo que esto no se considera vano: los muros quedan separados.
+max_void_width_m: 3.0
+# Cuánto se amplía el hueco de un vano al buscar el símbolo de puerta o ventana.
+symbol_search_m: 0.05
+# Las caras de menos área son restos numéricos, no espacios.
+min_space_area_m2: 0.05
+
+# Lo que un plano 2D no transmite. Se usa y se declara en el aviso «valores_por_defecto».
+level:
+  name: Planta baja
+  elevation: 0.0
+  default_height: 2.60
+openings:
+  door: {height: 2.10, sill_height: 0.0}
+  window: {height: 1.20, sill_height: 0.90}
+  void: {height: 2.10, sill_height: 0.0}
+space_category: useful
