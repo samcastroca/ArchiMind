@@ -1,5 +1,13 @@
 """Servidor MCP archimind-core: único escritor del modelo semántico de un proyecto."""
 
+from archimind_core.blocks import (
+    DRAFT_PATH,
+    AssignedBlock,
+    BlocksAssignment,
+    BlocksError,
+    apply_block_draft,
+    assign_blocks,
+)
 from archimind_core.build import BuildResult, build_model
 from archimind_core.build_rules import (
     DEFAULT_BUILD_RULES_PATH,
@@ -54,8 +62,12 @@ __all__ = [
     "AREA_CHANGE_TOL",
     "DEFAULT_BUILD_RULES_PATH",
     "DEFAULT_RULES_PATH",
+    "DRAFT_PATH",
     "PRELIMINARY_LABEL",
     "AreaTable",
+    "AssignedBlock",
+    "BlocksAssignment",
+    "BlocksError",
     "BuildResult",
     "BuildRules",
     "BuildRulesError",
@@ -82,7 +94,9 @@ __all__ = [
     "VersionDiff",
     "WallQuantities",
     "active_drawing",
+    "apply_block_draft",
     "apply_mapping",
+    "assign_blocks",
     "area_table",
     "build_model",
     "commit",

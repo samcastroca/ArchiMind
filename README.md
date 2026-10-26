@@ -115,7 +115,7 @@ dibuja a partir de él con ezdxf.
   por git).
 
 **Servidor MCP `archimind-core`** (`archimind_core/server.py`, con el SDK oficial `mcp` 2.x y
-`MCPServer`). Son 11 herramientas, todas con `project_path`, que responden con un resumen de
+`MCPServer`). Son 12 herramientas, todas con `project_path`, que responden con un resumen de
 menos de 50 líneas y rutas de archivo. Las que modifican el modelo hacen un commit en el
 repositorio del proyecto y responden con el hash de la versión:
 
@@ -127,10 +127,12 @@ repositorio del proyecto y responden con el hash de la versión:
 - `aplicar_mapeo(mapping)`: guarda el mapeo y reconstruye el modelo, con IDs nuevos.
 - `confirmar_escala(muro_id=None, longitud_real=None)`: sin argumentos confirma las unidades
   detectadas; con argumentos recalcula la escala.
-- `validar_modelo`, `listar_espacios` y `listar_vanos`.
+- `validar_modelo`, `listar_espacios` y `listar_vanos` (con el bloque de cada vano).
 - `cuadro_de_areas`: con la escala confirmada, además escribe `salidas/cuadro_de_areas.csv`.
 - `comparar_versiones(version_a, version_b)`: hashes o referencias como `HEAD~1`.
 - `exportar_plano(formato)`: `"png"` → `salidas/vista.png`; `"dxf"` → `salidas/<proyecto>.dxf`.
+- `asignar_bloques(borrador="salidas/borrador_bloques.json")`: guarda en el modelo la
+  carpintería que propuso `archimind-bloques`.
 
 El recurso `archimind://proyecto/modelo` resume el último proyecto abierto o usado en la sesión:
 plano activo, escala, conteos, áreas, validación y últimas versiones. Los errores previstos
@@ -219,10 +221,16 @@ La lógica de `core`:
   `A-VANO`), los espacios (`A-ESPACIO`), sus nombres (`A-TEXTO`) y sus áreas (`A-AREA`). Con la
   escala sin confirmar lanza `ExportError` y no escribe nada. Al volver a importarlo con
   `build_model` sale el mismo modelo.
+- **`assign_blocks(project, draft)`** aplica un `BlocksDraft`: comprueba todo antes de cambiar
+  nada (que cada vano exista, sea del tipo del bloque —un vano sin tipo adopta el del bloque— y
+  mida lo mismo ± 1 mm; si no, el modelo cambió desde el borrador y hay que repetirlo), pone a
+  cada bloque nuevo un `blq-` inédito, reutiliza el de un bloque con el mismo nombre y quita los
+  que quedan sin uso. `apply_block_draft(carpeta, ruta)` lo lee de la carpeta y guarda el modelo.
+  Una reconstrucción con `apply_mapping` deja el modelo sin bloques (los IDs quedan retirados).
 - **`compare_versions(model_a, model_b)`** empareja por ID las dos versiones y devuelve los
   espacios cuya área cambia más de 0.5 %, los muros añadidos, eliminados y movidos (eje o
-  espesor distinto en más de 0.001 m) y los vanos modificados (muro, tipo, bloque o cualquier
-  medida). Es preliminar si alguna de las dos versiones no tiene la escala confirmada.
+  espesor distinto en más de 0.001 m) y los vanos modificados (muro, tipo, bloque, lado del
+  bloque o cualquier medida). Es preliminar si alguna de las dos versiones no tiene la escala confirmada.
 
 En `schema`, `layer_mapping` solo admite esos nueve roles (`LayerRole`).
 

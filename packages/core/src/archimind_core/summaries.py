@@ -11,6 +11,7 @@ from pathlib import Path
 
 from archimind_schema import Problem, Project, validate
 
+from archimind_core.blocks import BlocksAssignment
 from archimind_core.build import BuildResult
 from archimind_core.compare import VersionDiff
 from archimind_core.history import Version, recent_versions
@@ -179,16 +180,42 @@ def openings(project: Project) -> str:
         ],
         12,
     )
-    lines.append("Lista: id · tipo ancho × alto · antepecho · muro y distancia desde su inicio")
+    lines.append(
+        "Lista: id · tipo ancho × alto · antepecho · muro y distancia desde su inicio · bloque"
+    )
     lines += truncate(
         [
             f"  {o.id} · {OPENING_KINDS[o.kind]} {o.width:.2f} × {o.height:.2f} m · "
             f"antepecho {o.sill_height:.2f} m · {o.wall_id} a {o.offset:.2f} m"
+            + (f" · {o.block_id}" if o.block_id else "")
             for o in project.openings
         ],
         MAX_LINES - len(lines) - 1,
     )
     return _text(lines)
+
+
+def blocks_assigned(result: BlocksAssignment, version: str | None) -> str:
+    new = sum(item.new for item in result.assigned)
+    lines = [
+        f"Carpintería asignada a {count(len(result.assigned), 'vano')}: "
+        f"{count(new, 'bloque nuevo', 'bloques nuevos')}, "
+        f"{count(len(result.assigned) - new, 'reutilizado', 'reutilizados')}.",
+        "Vano → bloque (nombre):",
+    ]
+    lines += truncate(
+        [
+            f"  {item.opening_id} → {item.block_id}{' (nuevo)' if item.new else ''} "
+            f"{item.block_name}"
+            for item in result.assigned
+        ],
+        40,
+    )
+    if result.removed:
+        lines.append(f"Bloques que quedaron sin uso, quitados: {_ids(result.removed)}.")
+    problems = [p for p in validate(result.project) if p.code.startswith("bloque_")]
+    lines += [f"  {_problem_line(p)}" for p in problems[:3]]
+    return _text([*lines, *_version_line(version)])
 
 
 def areas(project: Project, table: AreaTable, csv_path: Path | None) -> str:

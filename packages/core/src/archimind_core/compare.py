@@ -82,7 +82,8 @@ def _wall_moved(a: Wall, b: Wall) -> bool:
 
 
 def _opening_modified(a: Opening, b: Opening) -> bool:
-    if (a.wall_id, a.kind, a.block_id) != (b.wall_id, b.kind, b.block_id):
+    labels = ("wall_id", "kind", "block_id", "block_side")
+    if any(getattr(a, name) != getattr(b, name) for name in labels):
         return True
     return any(
         abs(getattr(a, name) - getattr(b, name)) > LENGTH_TOL

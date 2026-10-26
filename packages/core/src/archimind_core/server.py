@@ -17,6 +17,7 @@ from mcp.types import ToolAnnotations
 from pydantic import Field
 
 from archimind_core import summaries
+from archimind_core.blocks import DRAFT_PATH, BlocksError, apply_block_draft
 from archimind_core.build_rules import BuildRulesError
 from archimind_core.compare import compare_versions
 from archimind_core.drawing import DrawingError
@@ -46,6 +47,8 @@ espacios) guardado en la carpeta de cada proyecto y versionado con git.
 Flujo: abrir_proyecto → importar_plano → proponer_mapeo_capas → aplicar_mapeo (con la propuesta
 revisada) → confirmar_escala → consultas (listar_espacios, listar_vanos, cuadro_de_areas,
 validar_modelo), exportar_plano (png o dxf) y comparar_versiones.
+La carpintería la propone archimind-bloques (insertar_bloques_en_plano) en un borrador; se guarda
+en el modelo con asignar_bloques.
 Las áreas, longitudes y cantidades salen siempre de estas herramientas; no las calcules ni las
 estimes. Si la escala no está confirmada, toda cantidad es PRELIMINAR y hay que decirlo."""
 
@@ -57,6 +60,7 @@ WRITES_OUTPUT = ToolAnnotations(
 )
 # Errores previstos: su mensaje está escrito para el usuario y llega al modelo como ToolError.
 USER_ERRORS = (
+    BlocksError,
     BuildRulesError,
     DrawingError,
     ExportError,
@@ -301,6 +305,32 @@ def exportar_plano(
         return f"Vista guardada en {path}{note}."
     path = export_dxf(project, outputs_dir(folder) / f"{folder.name}.dxf")
     return f"DXF exportado en {path} (metros; capas A-MURO, A-PUERTA, A-VENTANA, A-ESPACIO…)."
+
+
+@_tool(WRITES_MODEL)
+def asignar_bloques(
+    project_path: ProjectPath,
+    borrador: Annotated[
+        str,
+        Field(
+            description=(
+                "Ruta del borrador que escribió insertar_bloques_en_plano; si es relativa, desde "
+                "la carpeta del proyecto."
+            )
+        ),
+    ] = DRAFT_PATH,
+) -> str:
+    """Guarda en el modelo la carpintería que propuso archimind-bloques: a cada vano del
+    borrador le pone su bloque (ID blq-) y el lado del muro hacia el que mira. Los vanos con la
+    misma carpintería comparten bloque y los bloques que quedan sin uso se quitan. Úsala después
+    de insertar_bloques_en_plano (archimind-bloques), cuando el usuario esté conforme con el
+    DXF; normalmente sin borrador, que por defecto es salidas/borrador_bloques.json. Si el modelo
+    cambió desde el borrador, no aplica nada y pide repetir la inserción. Devuelve vano → bloque y
+    la versión."""
+    folder, _ = _use(project_path)
+    result = apply_block_draft(folder, borrador)
+    version = commit(folder, f"Asigna bloques a {summaries.count(len(result.assigned), 'vano')}")
+    return summaries.blocks_assigned(result, version)
 
 
 @mcp.resource(

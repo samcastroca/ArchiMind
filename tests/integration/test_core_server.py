@@ -14,6 +14,7 @@ import pytest
 from archimind_core import area_table, recent_versions, server
 from archimind_core.server import MODEL_URI, mcp
 from archimind_schema import (
+    BlocksDraft,
     Space,
     SpacePolygon,
     load_project,
@@ -40,6 +41,7 @@ TOOLS = {
     "cuadro_de_areas",
     "comparar_versiones",
     "exportar_plano",
+    "asignar_bloques",
 }
 MAX_LINES = 50
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
@@ -237,6 +239,45 @@ async def test_inferred_units_stay_preliminary_until_confirmed(
     assert recent_versions(folder)[0].message == "Confirma la escala con las unidades del plano"
 
 
+async def test_assigned_blocks_are_versioned_and_listed(client: Client, tmp_path: Path) -> None:
+    folder = await _built(client, tmp_path, "apto_2hab")
+    path = str(folder)
+    doors = [o for o in load_project(folder).openings if o.kind == "door"][:2]
+    draft = BlocksDraft.model_validate(
+        {
+            "assignments": [
+                {
+                    "opening_id": door.id,
+                    "side": "left",
+                    "block": {
+                        "name": f"PUERTA-{round(door.width * 1000)}",
+                        "kind": "door",
+                        "width": door.width,
+                        "height": door.height,
+                        "parameters": {"type": "swing_door"},
+                    },
+                }
+                for door in doors
+            ]
+        }
+    )
+    (folder / "salidas" / "borrador_bloques.json").write_text(draft.model_dump_json())
+
+    assigned = await call(client, "asignar_bloques", project_path=path)
+
+    model = load_project(folder)
+    assert len(model.blocks) == len({d.width for d in doors})
+    assert "Carpintería asignada a 2 vanos" in assigned
+    assert f"{doors[0].id} → blq-0001 (nuevo)" in assigned
+    assert f"Versión {recent_versions(folder)[0].hash}." in assigned
+    assert recent_versions(folder)[0].message == "Asigna bloques a 2 vanos"
+    listed = await call(client, "listar_vanos", project_path=path)
+    assert f"{doors[0].id} · puerta" in listed and "· blq-0001" in listed
+
+    again = await call(client, "asignar_bloques", project_path=path)
+    assert "Sin cambios que versionar." in again
+
+
 # --- Errores ----------------------------------------------------------------------------
 
 
@@ -282,6 +323,7 @@ async def test_errors_reach_the_model_with_a_clear_message(client: Client, tmp_p
         client, "comparar_versiones", project_path=path, version_a="zzz", version_b="HEAD"
     )
     assert "La versión 'zzz' no existe" in message and "Versiones recientes" in message
+    assert "insertar_bloques_en_plano" in await fails(client, "asignar_bloques", project_path=path)
     assert _versions(folder) == before + 1  # solo el aplicar_mapeo que sí funcionó
 
 
