@@ -42,6 +42,7 @@ def test_proyecto_valido() -> None:
         ({"units": "mm"}, "units"),
         ({"next_ids": {"niv": 1, "muro": 2, "vano": 2, "esp": 1, "blq": 1}}, "contador"),
         ({"next_ids": {"niv": 2, "muro": 2}}, "prefijos"),
+        ({"layer_mapping": {"A-MURO": "muros"}}, "layer_mapping"),
     ],
 )
 def test_proyecto_rechaza_incoherencias(changes: dict[str, Any], message: str) -> None:

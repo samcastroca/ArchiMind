@@ -11,6 +11,10 @@ LENGTH_TOL = 0.001
 ANGLE_TOL_DEG = 0.5
 ID_PREFIXES = ("niv", "muro", "vano", "esp", "blq")
 WALL_THICKNESSES = (0.10, 0.12, 0.15, 0.20, 0.25)
+# Qué representa una capa del plano; "mixed" si mezcla roles y no se puede asignar uno solo.
+LayerRole = Literal[
+    "walls", "doors", "windows", "text", "dimensions", "axes", "furniture", "ignore", "mixed"
+]
 
 Point2D = tuple[float, float]
 
@@ -89,7 +93,7 @@ class Project(_Model):
     units: Literal["m"] = "m"
     scale_confirmed: bool
     source_files: list[str] = Field(default_factory=list)
-    layer_mapping: dict[str, str] = Field(default_factory=dict)
+    layer_mapping: dict[str, LayerRole] = Field(default_factory=dict)
     levels: list[Level] = Field(default_factory=list)
     walls: list[Wall] = Field(default_factory=list)
     openings: list[Opening] = Field(default_factory=list)

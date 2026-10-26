@@ -1,0 +1,45 @@
+# Reglas para proponer el rol de cada capa de un plano (archimind_core.layer_roles).
+#
+# Los patrones se comparan con las palabras del nombre (de capa o de bloque) en mayúsculas, sin
+# acentos y partido por todo lo que no sea letra o dígito: "A-MURO_EXT" da A, MURO y EXT. Un
+# patrón coincide si una palabra empieza por él: MUR cubre MURO y MUROS; WALL cubre A-WALL.
+
+name_patterns:
+  walls: [MURO, MUR, WALL, TABIQUE]
+  doors: [PUERTA, DOOR]
+  windows: [VENTANA, WIN]
+  text: [TEXTO, TEXT, ROTULO, ANNO]
+  dimensions: [COTA, DIM]
+  axes: [EJE, AXIS, GRID]
+  furniture: [MOBILIARIO, MUEBLE, MOB, FURN, EQUIP]
+  ignore: [DEFPOINTS, VPORT, VIEWPORT]
+
+# Nombres de bloque de los INSERT: todo lo que dibuja el bloque cuenta para ese rol.
+block_patterns:
+  doors: [PUERTA, DOOR]
+  windows: [VENTANA, WIN]
+  furniture: [MUEBLE, MESA, SILLA, CAMA, SOFA, ARMARIO, FURN, TABLE, CHAIR, BED, DESK]
+
+# Tolerancia, en metros, para comparar separaciones con los espesores de muro habituales,
+# extremos que coinciden y longitudes que deben ser iguales.
+length_tolerance_m: 0.001
+angle_tolerance_deg: 0.5
+# Giro del arco de una puerta y su tolerancia.
+door_arc_span_deg: 90
+door_arc_tolerance_deg: 1.0
+# Desde qué fracción del contenido de la capa un rol cuenta; dos roles por encima → mixed.
+mixed_min_share: 0.2
+
+confidence:
+  # El nombre y la geometría dicen lo mismo.
+  agree: 0.95
+  # Solo el nombre: la geometría no lo confirma ni lo contradice.
+  name_only: 0.85
+  # Solo la geometría: base + gain × fracción del contenido que explica.
+  geometry_base: 0.5
+  geometry_gain: 0.35
+  # El nombre dice una cosa y la geometría otra: gana la geometría.
+  conflict: 0.6
+  mixed: 0.8
+  # Ni el nombre ni la geometría dicen nada: se propone ignore.
+  none: 0.3

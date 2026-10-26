@@ -50,24 +50,26 @@ def _flatten(
             yield from _flatten(entity.virtual_entities(), layer)
 
 
+def linear_pieces(entity: DXFGraphic) -> list[DXFGraphic]:
+    """Tramos (LINE y, por los bulges, ARC) de una LINE o polilínea; [] para el resto."""
+    if isinstance(entity, Line):
+        return [entity]
+    if isinstance(entity, LWPolyline):
+        return list(entity.virtual_entities())
+    if isinstance(entity, Polyline) and (entity.is_2d_polyline or entity.is_3d_polyline):
+        return list(entity.virtual_entities())
+    return []
+
+
 def linear_lengths(entity: DXFGraphic) -> list[float]:
     """Longitud de cada tramo de una LINE o polilínea, en unidades del dibujo; [] para el resto.
 
     Los tramos con bulge de una polilínea cuentan con la longitud de su arco.
     """
-    pieces: Iterable[DXFGraphic]
-    if isinstance(entity, Line):
-        pieces = [entity]
-    elif isinstance(entity, LWPolyline):
-        pieces = entity.virtual_entities()
-    elif isinstance(entity, Polyline) and (entity.is_2d_polyline or entity.is_3d_polyline):
-        pieces = entity.virtual_entities()
-    else:
-        return []
-    return [length for piece in pieces if (length := _piece_length(piece)) > 0]
+    return [length for piece in linear_pieces(entity) if (length := piece_length(piece)) > 0]
 
 
-def _piece_length(piece: DXFGraphic) -> float:
+def piece_length(piece: DXFGraphic) -> float:
     if isinstance(piece, Line):
         return math.dist(piece.dxf.start, piece.dxf.end)
     if isinstance(piece, Arc):

@@ -52,6 +52,22 @@ dibuja a partir de él con ezdxf.
   insertados y hasta 5 textos de ejemplo. Solo el espacio modelo; los bloques anidados se
   explotan como entidades virtuales sin tocar el documento, y lo que está en la capa "0" de un
   bloque cuenta en la capa del INSERT.
+- **`propose_mapping(drawing)`**: por capa, un rol (`walls`, `doors`, `windows`, `text`,
+  `dimensions`, `axes`, `furniture`, `ignore` o `mixed`), una confianza entre 0 y 1 y la
+  evidencia en una frase. Combina el nombre (patrones en español e inglés: MURO, WALL, PUERTA,
+  DOOR, VENTANA, WIN, COTA, DIM…) con la geometría en metros: pares de tramos paralelos a un
+  espesor de muro habitual, arcos de 90° con su hoja, ventanas de tres líneas paralelas, textos,
+  cotas e INSERT con nombre de puerta, ventana o mueble. Si dos roles explican una parte
+  importante de la capa, es `mixed`; si el nombre y la geometría se contradicen, gana la
+  geometría con menos confianza. Las reglas y umbrales están en
+  `packages/core/config/layer_rules.yaml` (fuera de `src/`: vale en el workspace, no en un
+  wheel); `load_rules(ruta)` carga otras.
+- **`apply_mapping(project_path, drawing, mapping)`** guarda el mapeo en `layer_mapping` de
+  `modelo.json` (lo reemplaza y añade el plano a `source_files`). Rechaza roles o capas que no
+  existan. Si la carpeta no tiene modelo, crea uno mínimo con la escala confirmada solo si el
+  plano declara sus unidades. `proposals_to_mapping` convierte la propuesta en mapeo.
+
+En `schema`, `layer_mapping` solo admite esos nueve roles (`LayerRole`).
 
 Siguen pendientes la reconstrucción de muros y el servidor MCP de `core`, `bloques`, `docs`,
 `vision` y los puentes con Rhino, AutoCAD e Illustrator.

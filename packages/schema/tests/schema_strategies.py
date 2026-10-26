@@ -1,9 +1,11 @@
 """Estrategias hypothesis que generan entidades y proyectos válidos."""
 
 import math
+from typing import get_args
 
 from archimind_schema import (
     Annotation,
+    LayerRole,
     Level,
     Opening,
     Point2D,
@@ -75,7 +77,9 @@ def projects(draw: st.DrawFn) -> Project:
         name=draw(st.text(max_size=20)),
         scale_confirmed=draw(st.booleans()),
         source_files=draw(st.lists(st.text(max_size=10), max_size=3)),
-        layer_mapping=draw(st.dictionaries(st.text(max_size=8), st.text(max_size=8), max_size=3)),
+        layer_mapping=draw(
+            st.dictionaries(st.text(max_size=8), st.sampled_from(get_args(LayerRole)), max_size=3)
+        ),
     )
     for _ in range(draw(st.integers(1, 3))):
         project.levels.append(

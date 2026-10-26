@@ -3,7 +3,12 @@ name = "archimind-core"
 version = "0.1.0"
 description = "Servidor MCP archimind-core: único escritor del modelo semántico de un proyecto."
 requires-python = ">=3.11"
-dependencies = ["archimind-schema", "ezdxf>=1.4.5"]
+dependencies = [
+    "archimind-schema",
+    "ezdxf>=1.4.5",
+    "pydantic>=2",
+    "pyyaml>=6.0.3",
+]
 
 [tool.uv.sources]
 archimind-schema = { workspace = true }
