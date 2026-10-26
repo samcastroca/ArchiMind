@@ -3,9 +3,10 @@
 from typing import TYPE_CHECKING
 
 from shapely import LineString, Polygon
+from shapely.ops import substring
 
 if TYPE_CHECKING:
-    from archimind_schema.models import Project, Space, Wall
+    from archimind_schema.models import Opening, Project, Space, Wall
 
 
 def wall_length(wall: "Wall") -> float:
@@ -15,6 +16,12 @@ def wall_length(wall: "Wall") -> float:
 def wall_polygon(wall: "Wall") -> Polygon:
     """Huella del muro: el eje engrosado a cada lado, con extremos planos e ingletes."""
     return LineString(wall.axis).buffer(wall.thickness / 2, cap_style="flat", join_style="mitre")
+
+
+def opening_polygon(wall: "Wall", opening: "Opening") -> Polygon:
+    """Huella del vano: el tramo de eje que ocupa, engrosado como el muro."""
+    span = substring(LineString(wall.axis), opening.offset, opening.offset + opening.width)
+    return span.buffer(wall.thickness / 2, cap_style="flat", join_style="mitre")
 
 
 def space_area(space: "Space") -> float:

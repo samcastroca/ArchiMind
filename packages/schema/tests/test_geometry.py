@@ -1,10 +1,12 @@
 import math
 
 from archimind_schema import (
+    Opening,
     Point2D,
     Space,
     SpacePolygon,
     Wall,
+    opening_polygon,
     space_area,
     wall_length,
     wall_polygon,
@@ -64,3 +66,25 @@ def test_area_descuenta_huecos() -> None:
         holes=[[(1, 1), (2, 1), (2, 2), (1, 2)]],
     )
     assert space_area(_space(polygon)) == 11
+
+
+@given(coords, coords, sizes, st.floats(0, 2 * math.pi), thicknesses, st.data())
+def test_huella_de_vano_es_ancho_por_espesor_dentro_del_muro(
+    x: float, y: float, length: float, angle: float, thickness: float, data: st.DataObject
+) -> None:
+    end = (x + length * math.cos(angle), y + length * math.sin(angle))
+    wall = Wall(id="muro-0001", level_id="niv-0001", axis=[(x, y), end], thickness=thickness)
+    width = data.draw(st.floats(0.01 * length, length))
+    offset = data.draw(st.floats(0, length - width))
+    opening = Opening(
+        id="vano-0001",
+        wall_id=wall.id,
+        kind="door",
+        offset=offset,
+        width=width,
+        height=2.1,
+        sill_height=0,
+    )
+    footprint = opening_polygon(wall, opening)
+    assert math.isclose(footprint.area, width * thickness, rel_tol=1e-6)
+    assert footprint.difference(wall_polygon(wall)).area <= 1e-6 * footprint.area

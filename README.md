@@ -16,8 +16,8 @@ importación de planos en `packages/core`. `schema`:
   metros. Pydantic comprueba la forma y los tipos.
 - **IDs inéditos** con prefijo (`niv-`, `muro-`, `vano-`, `esp-`, `blq-`): `new_id` usa un contador
   por prefijo que solo avanza y se guarda con el modelo.
-- **Geometría derivada** con shapely: longitud y huella de muros, área de espacios y altura
-  efectiva de muros.
+- **Geometría derivada** con shapely: longitud y huella de muros, huella de vanos
+  (`opening_polygon`), área de espacios y altura efectiva de muros.
 - **Persistencia atómica** de `modelo.json`: `load_project` / `save_project`.
 - **`validate(project)`**: devuelve todos los problemas del modelo a la vez, cada uno con código,
   severidad (`error` | `warning`), IDs afectados y mensaje en español. Son errores: IDs repetidos

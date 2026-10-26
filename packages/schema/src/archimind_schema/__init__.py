@@ -1,6 +1,12 @@
 """Modelo semántico del plano (Pydantic v2) y sus validadores."""
 
-from archimind_schema.geometry import space_area, wall_height, wall_length, wall_polygon
+from archimind_schema.geometry import (
+    opening_polygon,
+    space_area,
+    wall_height,
+    wall_length,
+    wall_polygon,
+)
 from archimind_schema.ids import new_id
 from archimind_schema.io import MODEL_FILENAME, load_project, save_project
 from archimind_schema.models import (
@@ -38,6 +44,7 @@ __all__ = [
     "Wall",
     "load_project",
     "new_id",
+    "opening_polygon",
     "save_project",
     "space_area",
     "validate",
