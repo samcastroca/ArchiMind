@@ -100,6 +100,10 @@ dibuja a partir de él con ezdxf.
   - `wall_quantities(project)`: metros lineales de eje por espesor medido (redondeado al mm, sin
     llevarlo a los habituales), vanos incluidos.
   - `opening_counts(project)`: cantidad de vanos por tipo, ancho y alto.
+- **`compare_versions(model_a, model_b)`** empareja por ID las dos versiones y devuelve los
+  espacios cuya área cambia más de 0.5 %, los muros añadidos, eliminados y movidos (eje o
+  espesor distinto en más de 0.001 m) y los vanos modificados (muro, tipo, bloque o cualquier
+  medida). Es preliminar si alguna de las dos versiones no tiene la escala confirmada.
 
 En `schema`, `layer_mapping` solo admite esos nueve roles (`LayerRole`).
 
