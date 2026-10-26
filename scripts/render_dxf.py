@@ -17,6 +17,18 @@ from ezdxf import recover  # noqa: E402
 from ezdxf.addons.drawing import Frontend, RenderContext  # noqa: E402
 from ezdxf.addons.drawing.config import BackgroundPolicy, ColorPolicy, Configuration  # noqa: E402
 from ezdxf.addons.drawing.matplotlib import MatplotlibBackend  # noqa: E402
+from ezdxf.document import Drawing  # noqa: E402
+from matplotlib.axes import Axes  # noqa: E402
+
+
+def draw_dxf(doc: Drawing, ax: Axes, config: Configuration | None = None) -> None:
+    """Dibuja el espacio modelo en unos ejes de matplotlib, en unidades del dibujo."""
+    config = config or Configuration(
+        background_policy=BackgroundPolicy.WHITE, color_policy=ColorPolicy.COLOR
+    )
+    Frontend(RenderContext(doc), MatplotlibBackend(ax), config=config).draw_layout(
+        doc.modelspace(), finalize=True
+    )
 
 
 def render_dxf(dxf_path: str | Path, png_path: str | Path | None = None, dpi: int = 200) -> Path:
@@ -32,10 +44,7 @@ def render_dxf(dxf_path: str | Path, png_path: str | Path | None = None, dpi: in
         raise ValueError(f"{source} tiene errores graves de estructura y no se puede renderizar")
     fig = plt.figure(figsize=(10, 10))
     ax = fig.add_axes((0, 0, 1, 1))
-    config = Configuration(background_policy=BackgroundPolicy.WHITE, color_policy=ColorPolicy.COLOR)
-    Frontend(RenderContext(doc), MatplotlibBackend(ax), config=config).draw_layout(
-        doc.modelspace(), finalize=True
-    )
+    draw_dxf(doc, ax)
     fig.savefig(target, dpi=dpi)
     plt.close(fig)
     return target

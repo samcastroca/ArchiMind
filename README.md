@@ -39,6 +39,10 @@ dibuja a partir de él con ezdxf.
   continuo de eje, sin partir en las uniones en T. `assert_matches(project, esperado)` hace lo
   mismo frente a un modelo en memoria.
 - `uv run python scripts/render_dxf.py plano.dxf [salida.png]` renderiza cualquier DXF a PNG.
+- `uv run python scripts/render_model.py plano.dxf [salida.png]` reconstruye el modelo con
+  `build_model` y lo renderiza sobre el DXF: muros en azul, vanos en naranja y espacios rellenos
+  con nombre y área. Con `--all` hace los casos golden en `tests/output/build_model/` (ignorada
+  por git).
 
 `core` (por ahora solo la lógica, sin servidor MCP):
 
