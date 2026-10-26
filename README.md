@@ -67,13 +67,23 @@ dibuja a partir de él con ezdxf.
   geometría con menos confianza. Las reglas y umbrales están en
   `packages/core/config/layer_rules.yaml` (fuera de `src/`: vale en el workspace, no en un
   wheel); `load_rules(ruta)` carga otras.
-- **`apply_mapping(project_path, drawing, mapping)`** guarda el mapeo en `layer_mapping` de
-  `modelo.json` (lo reemplaza y añade el plano a `source_files`). Rechaza roles o capas que no
-  existan. Si la carpeta no tiene modelo, crea uno mínimo con la escala confirmada solo si el
-  plano declara sus unidades. `proposals_to_mapping` convierte la propuesta en mapeo.
-- **`build_model(drawing, mapping)`** reconstruye el modelo y devuelve un `BuildResult` con el
-  `Project` y sus problemas (los avisos de la reconstrucción más los de `validate`). No escribe
-  nada.
+- **Carpeta del proyecto**: `modelo.json`, los planos importados en `planos/`, las salidas
+  regenerables en `salidas/` (fuera de git) y su propio repositorio git. `open_project(ruta)`
+  crea lo que falte. `import_drawing(ruta, plano)` lee el plano, lo copia a `planos/` y lo deja
+  como plano activo (el último de `source_files`); un plano ilegible no deja rastro.
+  `active_drawing(ruta)` lee el plano activo.
+- **Historial** con git: `commit(carpeta, mensaje)` versiona `modelo.json`, `planos/` y
+  `.gitignore` firmando como ArchiMind y devuelve el hash corto, o `None` si no cambió nada.
+  `recent_versions(carpeta)` y `load_version(carpeta, "HEAD~1")` leen las versiones anteriores.
+- **`apply_mapping(project_path, drawing, mapping)`** valida los roles y las capas, reconstruye
+  el modelo del proyecto con `build_model` y lo guarda; si el mapeo no es válido, no escribe
+  nada. La reconstrucción conserva el nombre, las fuentes y los contadores de IDs: los muros,
+  vanos y espacios reciben IDs nuevos, nunca uno retirado, y la escala vuelve a ser la del plano.
+  `proposals_to_mapping` convierte la propuesta en mapeo.
+- **`build_model(drawing, mapping, base=None)`** reconstruye el modelo y devuelve un
+  `BuildResult` con el `Project` y sus problemas (los avisos de la reconstrucción más los de
+  `validate`). No escribe nada. Con `base`, el modelo conserva el id, el nombre, las fuentes y
+  los contadores de IDs de ese proyecto.
   - Muros: las líneas de muro que cierran anillos forman el material; dos caras paralelas
     separadas entre 0.05 y 0.50 m con material entre ambas dan un tramo (eje a media distancia,
     espesor medido sin redondear). Los tramos colineales de igual espesor se unen a través de

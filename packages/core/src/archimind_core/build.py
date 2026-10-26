@@ -33,21 +33,34 @@ def build_model(
     mapping: Mapping[str, str],
     rules: BuildRules | None = None,
     layer_rules: LayerRules | None = None,
+    base: Project | None = None,
 ) -> BuildResult:
     """Muros, vanos y espacios del plano según el rol de cada capa. No escribe nada.
 
     Lo que el plano no transmite (alturas, categoría de los espacios, el nivel) sale de
     `build_rules.yaml` y se declara en el aviso `valores_por_defecto`.
+
+    Con `base`, el modelo reconstruido conserva su identidad, sus fuentes y sus contadores de
+    IDs: los elementos nuevos nunca reutilizan un ID retirado.
     """
     validate_roles(mapping)
     rules = rules or load_build_rules()
     content = extract(drawing, mapping, layer_rules or load_rules())
-    project = Project(
-        id=drawing.path.stem,
-        name=drawing.path.stem,
-        scale_confirmed=drawing.units.confirmed,
-        source_files=[drawing.path.name],
-    )
+    if base is None:
+        project = Project(
+            id=drawing.path.stem,
+            name=drawing.path.stem,
+            scale_confirmed=drawing.units.confirmed,
+            source_files=[drawing.path.name],
+        )
+    else:
+        project = Project(
+            id=base.id,
+            name=base.name,
+            scale_confirmed=drawing.units.confirmed,
+            source_files=list(base.source_files),
+            next_ids=dict(base.next_ids),
+        )
     level = Level(
         id=new_id(project, "niv"),
         name=rules.level.name,

@@ -9,10 +9,29 @@ from archimind_core.build_rules import (
 )
 from archimind_core.compare import AREA_CHANGE_TOL, SpaceChange, VersionDiff, compare_versions
 from archimind_core.drawing import Drawing, DrawingError, read_drawing
+from archimind_core.history import (
+    HistoryError,
+    Version,
+    commit,
+    init_repo,
+    load_version,
+    recent_versions,
+)
 from archimind_core.inventory import LayerSummary, layer_inventory
 from archimind_core.layer_roles import LayerProposal, propose_mapping
 from archimind_core.layer_rules import DEFAULT_RULES_PATH, LayerRules, LayerRulesError, load_rules
-from archimind_core.mapping import MappingError, apply_mapping, proposals_to_mapping
+from archimind_core.mapping import MappingError, proposals_to_mapping
+from archimind_core.project import (
+    OpenedProject,
+    ProjectError,
+    active_drawing,
+    apply_mapping,
+    import_drawing,
+    load_existing,
+    open_project,
+    outputs_dir,
+    project_folder,
+)
 from archimind_core.quantities import (
     PRELIMINARY_LABEL,
     AreaTable,
@@ -40,30 +59,44 @@ __all__ = [
     "Drawing",
     "DrawingError",
     "DrawingUnits",
+    "HistoryError",
     "LayerProposal",
     "LayerRules",
     "LayerRulesError",
     "LayerSummary",
     "MappingError",
+    "OpenedProject",
     "OpeningCount",
     "OpeningCounts",
+    "ProjectError",
     "QuantitiesError",
     "SpaceArea",
     "SpaceChange",
+    "Version",
     "VersionDiff",
     "WallQuantities",
+    "active_drawing",
     "apply_mapping",
     "area_table",
     "build_model",
+    "commit",
     "compare_versions",
     "detect_units",
     "export_area_table_csv",
+    "import_drawing",
+    "init_repo",
     "layer_inventory",
     "load_build_rules",
+    "load_existing",
     "load_rules",
+    "load_version",
+    "open_project",
     "opening_counts",
+    "outputs_dir",
+    "project_folder",
     "proposals_to_mapping",
     "propose_mapping",
     "read_drawing",
+    "recent_versions",
     "wall_quantities",
 ]

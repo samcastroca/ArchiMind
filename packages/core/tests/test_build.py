@@ -65,6 +65,19 @@ def test_project_carries_scale_mapping_and_source() -> None:
     assert {round(w.thickness, 3) for w in project.walls} == {0.10, 0.12, 0.20}
 
 
+def test_base_keeps_identity_sources_and_id_counters() -> None:
+    base = Project(id="casa", name="Casa", scale_confirmed=False, source_files=["a.dxf"])
+    base.next_ids["muro"] = 50
+    drawing = read_drawing(GOLDEN_DIR / "rect_simple" / "input.dxf")
+
+    project = build_model(drawing, MAPPING, base=base).project
+
+    assert (project.id, project.name, project.source_files) == ("casa", "Casa", ["a.dxf"])
+    assert project.scale_confirmed  # la escala es la del plano, no la de la base
+    assert all(int(w.id.split("-")[1]) >= 50 for w in project.walls)
+    assert base.next_ids["muro"] == 50  # la base no se toca
+
+
 # --- Planos generados -------------------------------------------------------------------
 
 
