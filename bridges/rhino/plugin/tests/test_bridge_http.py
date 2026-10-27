@@ -125,9 +125,14 @@ def test_validates_the_load_payload(server: bridge.BridgeServer) -> None:
         "footprint": [[0, 0], [1, 0], [1, 1]],
     }
     args = {"project": "C:/casa", "base_sha256": "a", "base_model": "{}"}
-    ok = json.dumps(args | {"objects": [good]}).encode()
-    assert _post(server, "load_model_layers", ok) == (200, {"ok": True, "result": {"loaded": 1}})
-    for bad in (good | {"layer": "Otra"}, good | {"z1": 0}, good | {"kind": "malla"}):
+    ok = json.dumps(args | {"objects": [good, good | {"name": "Estar"}]}).encode()
+    assert _post(server, "load_model_layers", ok) == (200, {"ok": True, "result": {"loaded": 2}})
+    for bad in (
+        good | {"layer": "Otra"},
+        good | {"z1": 0},
+        good | {"kind": "malla"},
+        good | {"name": 3},
+    ):
         body = json.dumps(args | {"objects": [bad]}).encode()
         assert _post(server, "load_model_layers", body)[0] == 400
 

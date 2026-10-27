@@ -576,8 +576,9 @@ descripciones explican el esquema con un ejemplo («ventana corrediza de alumini
   unidades del documento. Volver a ejecutar el script lo reinicia.
 - En Rhino, el modelo va en `ArchiMind::Muros` (cada muro, su huella extruida con su altura),
   `ArchiMind::Vanos` (una caja en cada hueco, sin restarla del muro) y `ArchiMind::Espacios`
-  (superficies a la cota del nivel). Cada objeto lleva su ID en el user string `archimind_id`, y
-  el documento guarda el `modelo.json` con el que se cargó.
+  (superficies a la cota del nivel, con el nombre del espacio como nombre del objeto). Cada
+  objeto lleva su ID en el user string `archimind_id`, y el documento guarda el `modelo.json`
+  con el que se cargó.
 - **Servidor MCP `rhino-bridge`** (paquete `archimind-rhino-bridge` en `bridges/rhino/mcp`), con 4
   herramientas que reciben `project_path`. Si el puente no responde: «Rhino no está abierto o el
   puente no está iniciado; ejecuta <ruta del script> desde el editor de scripts».
@@ -585,14 +586,19 @@ descripciones explican el esquema con un ejemplo («ventana corrediza de alumini
   - `abrir_en_rhino(descartar_cambios=False)`: abre `salidas/<proyecto>.3dm` (lo crea en metros
     con rhino3dm si no existe). Si el modelo no cambió desde la última carga, conserva lo editado;
     si cambió, recarga las capas ArchiMind y guarda. Si hay ediciones sin leer y el modelo
-    cambió, se niega salvo `descartar_cambios=True`. Nunca abre encima de un documento con
+    cambió, se niega salvo `descartar_cambios=True`, o salvo que esas ediciones sean las que core
+    ya aplicó (`salidas/borrador_rhino.aplicado.json`). Nunca abre encima de un documento con
     cambios sin guardar.
   - `leer_cambios`: compara Rhino con el modelo cargado (no con el actual) y escribe
     `salidas/borrador_rhino.json` (`EditsDraft`): muros rectos movidos, girados, estirados o con
     otro espesor o alto (de la huella rectangular), vanos desplazados o con otra medida en su
-    muro, espacios con otro contorno y lo borrado (con un muro, sus vanos). Avisa de los objetos
-    sin `archimind_id`, las copias, los sólidos que ya no son prismas rectangulares y los muros
-    de varios tramos; nada de eso entra.
+    muro, espacios con otro contorno o renombrados (el nombre del objeto), lo borrado (con un
+    muro, sus vanos) y lo dibujado sin `archimind_id` en las subcapas ArchiMind: muros nuevos
+    (prismas rectangulares a la cota de un nivel), vanos nuevos sin tipo en el muro recto,
+    existente o nuevo, sobre el que caen, y espacios nuevos con el nombre del objeto. Avisa de
+    las copias, los sólidos que ya no son prismas rectangulares, lo nuevo que no se puede leer y
+    los muros de varios tramos; nada de eso entra. Si los cambios son los que core ya aplicó, no
+    escribe borrador.
   - `guardar_3dm`: guarda el documento del proyecto en `salidas/<proyecto>.3dm`.
 - Las pruebas usan un documento de Rhino falso (`bridges/rhino/mcp/tests/fake_rhino.py`) detrás
   del servidor HTTP real del script; lo que depende de RhinoCommon está en

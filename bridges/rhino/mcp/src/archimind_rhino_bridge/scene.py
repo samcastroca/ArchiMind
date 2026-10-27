@@ -2,7 +2,9 @@
 
 Un muro es un prisma: su huella (`wall_polygon`) extruida desde la cota de su nivel con su altura.
 Un vano es la caja que ocupa el hueco: su huella (`opening_polygon`) desde el antepecho con su
-alto, sin restarla del muro. Un espacio es una superficie plana a la cota de su nivel.
+alto, sin restarla del muro. Un espacio es una superficie plana a la cota de su nivel, con el
+nombre del espacio como nombre del objeto (así se renombra en Rhino); los demás objetos se llaman
+como su ID.
 """
 
 from typing import Any
@@ -30,6 +32,7 @@ def scene(project: Project) -> list[dict[str, Any]]:
         objects.append(
             {
                 "id": space.id,
+                "name": space.name,
                 "layer": LAYERS["esp"],
                 "kind": "surface",
                 "exterior": [list(p) for p in space.polygon.exterior],

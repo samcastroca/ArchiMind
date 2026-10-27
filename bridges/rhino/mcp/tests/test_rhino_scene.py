@@ -40,6 +40,7 @@ def test_walls_openings_and_spaces() -> None:
     assert (vano["z0"], vano["z1"]) == (3.9, 5.1)
     assert esp == {
         "id": "esp-0001",
+        "name": room.name,
         "layer": "Espacios",
         "kind": "surface",
         "exterior": [[0, 0], [4, 0], [4, 3]],

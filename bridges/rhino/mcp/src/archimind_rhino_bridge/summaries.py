@@ -54,6 +54,7 @@ def opened(
     discarded: list[str],
     foreign: str | None,
     preliminary: bool,
+    applied: bool = False,
 ) -> str:
     lines = [f"Proyecto abierto en Rhino: {target}."]
     if loaded is None:
@@ -68,6 +69,8 @@ def opened(
         )
     if foreign:
         lines.append(f"Las capas que había eran de otro proyecto ({foreign}) y se reemplazaron.")
+    if applied:
+        lines.append("Las ediciones que había en Rhino ya estaban aplicadas en el modelo.")
     if discarded:
         lines.append(f"Se descartaron {len(discarded)} cambio(s) sin leer de Rhino.")
     if preliminary:
@@ -98,7 +101,8 @@ def changes(result: Changes, draft: Path | None, removed: bool, stale: bool) -> 
         lines += [f"- {line}" for line in result.lines[:MAX_CHANGES]]
         if len(result.lines) > MAX_CHANGES:
             lines.append(f"- … y {len(result.lines) - MAX_CHANGES} más (en el borrador).")
-        lines.append(f"Borrador: {draft}. archimind-core todavía no aplica este borrador.")
+        lines.append(f"Borrador: {draft}.")
+        lines.append("Para guardarlo en el modelo: aplicar_borrador de archimind-core.")
     if stale:
         lines.append(
             "El modelo cambió desde que se cargó en Rhino: el borrador se refiere a la versión "
@@ -110,6 +114,13 @@ def changes(result: Changes, draft: Path | None, removed: bool, stale: bool) -> 
         if len(result.notes) > MAX_NOTES:
             lines.append(f"- … y {len(result.notes) - MAX_NOTES} avisos más.")
     return "\n".join(lines)
+
+
+def already_applied(n: int) -> str:
+    return (
+        f"Los {n} cambio(s) de Rhino ya se aplicaron al modelo con aplicar_borrador: no hay "
+        "borrador nuevo. abrir_en_rhino recarga las capas con el modelo actual."
+    )
 
 
 def saved(path: Path) -> str:

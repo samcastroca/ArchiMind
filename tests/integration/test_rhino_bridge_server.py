@@ -152,12 +152,13 @@ async def test_full_flow(client: Client, core: Client, tmp_path: Path, rhino: Fa
     rhino.delete("vano-0003")
     rhino.add_untagged()
     read = await call(client, "leer_cambios", project_path=path)
-    assert "2 cambio(s) en Rhino" in read
+    assert "3 cambio(s) en Rhino" in read and "aplicar_borrador de archimind-core" in read
     assert "- vano-0003: borrado" in read and "muro-0001:" in read
-    assert "1 objeto(s) sin archimind_id" in read
+    assert "- nuevo muro nuevo-1: largo 1.00 m, espesor 1.000 m" in read
     draft_path = folder / "salidas" / "borrador_rhino.json"
     draft = EditsDraft.model_validate_json(draft_path.read_text(encoding="utf-8"))
     assert [edit.id for edit in draft.walls] == ["muro-0001"] and draft.deleted == ["vano-0003"]
+    assert [new.ref for new in draft.new_walls] == ["nuevo-1"]
     model_text = (folder / "modelo.json").read_text(encoding="utf-8")
     assert "muro-0001" in model_text  # el puente no toca el modelo
 
@@ -176,7 +177,7 @@ async def test_full_flow(client: Client, core: Client, tmp_path: Path, rhino: Fa
 
     # …hasta que el usuario las descarta.
     reloaded = await call(client, "abrir_en_rhino", project_path=path, descartar_cambios=True)
-    assert "Se descartaron 2 cambio(s)" in reloaded and "8 muros, 9 vanos" in reloaded
+    assert "Se descartaron 3 cambio(s)" in reloaded and "8 muros, 9 vanos" in reloaded
     assert "Sin cambios" in await call(client, "leer_cambios", project_path=path)
     assert not draft_path.exists()  # el borrador anterior ya no corresponde
 

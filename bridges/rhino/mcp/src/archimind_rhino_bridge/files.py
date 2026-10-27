@@ -14,6 +14,8 @@ from pydantic import ValidationError
 
 OUTPUTS_DIR = "salidas"
 DRAFT_NAME = "borrador_rhino.json"
+# Así lo renombra archimind-core cuando lo aplica al modelo.
+APPLIED_NAME = "borrador_rhino.aplicado.json"
 
 
 class ProjectError(Exception):
@@ -53,6 +55,15 @@ def rhino_file(folder: Path) -> Path:
 
 def draft_file(folder: Path) -> Path:
     return folder / OUTPUTS_DIR / DRAFT_NAME
+
+
+def applied_draft(folder: Path) -> EditsDraft | None:
+    """El último borrador que core aplicó al modelo, si hay uno legible."""
+    path = folder / OUTPUTS_DIR / APPLIED_NAME
+    try:
+        return EditsDraft.model_validate_json(path.read_text(encoding="utf-8"))
+    except (OSError, ValidationError):
+        return None
 
 
 def create_empty_3dm(path: Path) -> Path:

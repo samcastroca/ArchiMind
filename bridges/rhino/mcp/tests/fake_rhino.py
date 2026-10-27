@@ -26,6 +26,7 @@ class FakeObject:
     z0: float
     z1: float = 0.0
     faces: list[Any] | None = None  # si no es None, se devuelve tal cual (objeto «roto»)
+    name: str | None = None
 
 
 @dataclass
@@ -93,6 +94,7 @@ class FakeDocument:
             else:
                 rings = [[(x, y) for x, y in r] for r in [item["exterior"], *item["holes"]]]
                 self.objects.append(FakeObject(item["id"], layer, "surface", rings, item["z"]))
+            self.objects[-1].name = item.get("name") or item["id"]
             counts[item["layer"]] += 1
         self.strings.update(
             {bridge.DOC_PROJECT: project, bridge.DOC_SHA: base_sha256, bridge.DOC_BASE: base_model}
@@ -108,7 +110,13 @@ class FakeDocument:
             "base_sha256": self.strings.get(bridge.DOC_SHA),
             "base_model": self.strings.get(bridge.DOC_BASE),
             "objects": [
-                {"id": o.tag, "layer": o.layer, "type": "Extrusion", "faces": _faces(o)}
+                {
+                    "id": o.tag,
+                    "name": o.name,
+                    "layer": o.layer,
+                    "type": "Extrusion",
+                    "faces": _faces(o),
+                }
                 for o in self.objects
             ],
         }
@@ -160,10 +168,24 @@ class FakeDocument:
         self.objects.append(copy.deepcopy(self.get(tag)))
         self.modified = True
 
-    def add_untagged(self, layer: str = "Muros") -> None:
-        ring = [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)]
+    def rename(self, tag: str, name: str) -> None:
+        self.get(tag).name = name
+        self.modified = True
+
+    def add_untagged(
+        self,
+        layer: str = "Muros",
+        ring: list[Point] | None = None,
+        z0: float = 0.0,
+        z1: float = 1.0,
+        name: str | None = None,
+    ) -> None:
+        """Un objeto dibujado en Rhino, sin archimind_id: un prisma, o en Espacios una
+        superficie a la cota z0."""
+        ring = ring or [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)]
+        kind = "surface" if layer == "Espacios" else "prism"
         self.objects.append(
-            FakeObject(None, f"{bridge.ROOT_LAYER}::{layer}", "prism", [ring], 0.0, 1.0)
+            FakeObject(None, f"{bridge.ROOT_LAYER}::{layer}", kind, [ring], z0, z1, name=name)
         )
         self.modified = True
 

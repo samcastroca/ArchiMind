@@ -62,7 +62,9 @@ ruta real del script.
    - los muros son sólidos desde el piso (cota 0) hasta su altura, los vanos son cajas dentro de
      los huecos y los espacios, superficies en el piso (vista **Perspectiva**, modo Sombreado);
    - al seleccionar un muro, **Propiedades** muestra el nombre `muro-000N` y, en **Texto de
-     usuario de atributos**, `archimind_id = muro-000N`.
+     usuario de atributos**, `archimind_id = muro-000N`;
+   - al seleccionar un espacio, el nombre es el del espacio (p. ej. `Habitación 1`) y el
+     `archimind_id`, `esp-000N`.
 3. `Deshacer` (Ctrl+Z) debe quitar la carga entera en un paso («ArchiMind: cargar el modelo»);
    rehacerla con Ctrl+Y.
 4. Pedir el estado: «Capas ArchiMind de este proyecto: 8 muros, 9 vanos, 4 espacios» y «El
@@ -84,15 +86,27 @@ Antes de cada lectura, terminar el comando en curso (Esc).
    como movido) y «Borrador: …\salidas\borrador_rhino.json». En ese archivo: `"source":
    "rhino"`, `base_sha256` y los mismos IDs en `walls`, `openings` y `deleted`. `modelo.json` no
    cambia: `git status` en la carpeta del proyecto queda limpio.
-4. Avisos: copiar un muro (`Copy`), dibujar una caja nueva (`Box`) en la capa
-   `ArchiMind::Muros` y aplicar `BooleanDifference` a otro muro con una caja que lo corte.
-   «Lee los cambios»: «… está 2 veces en Rhino (¿una copia?)», «1 objeto(s) sin archimind_id» y,
-   para el muro cortado, «su huella ya no es un rectángulo» o «no se pudo leer». Deshacer esas
-   tres ediciones con Ctrl+Z.
-5. Unidades: `Units` → Milímetros, contestando **Sí** a escalar los objetos. «Lee los cambios»
+4. Nuevos y renombrados, con la capa actual en `ArchiMind::…` según el caso:
+   - en **Propiedades** de un espacio, cambiar el **Nombre** a `Estudio`;
+   - en `ArchiMind::Muros`, `Box` de 3 m × 0.10 m en planta y 2.60 m de alto, apoyada en la cota
+     0;
+   - en `ArchiMind::Vanos`, `Box` de 0.80 m de largo que atraviese esa caja nueva a lo largo,
+     desde la cota 0 y de 2.0 m de alto;
+   - en `ArchiMind::Espacios`, `Rectangle` y `PlanarSrf` en la cota 0, con Nombre `Depósito`.
+
+   «Lee los cambios»: «esp-…: renombrado «…» → «Estudio»», «nuevo muro nuevo-1: largo 3.00 m,
+   espesor 0.100 m», «nuevo vano nuevo-2 en nuevo-1: ancho 0.80 m, alto 2.00 m» y «nuevo espacio
+   nuevo-3 «Depósito»: … m²»; en el borrador, `new_walls`, `new_openings` (con `"wall":
+   "nuevo-1"` y `"kind": "void"`) y `new_spaces`. Deshacer esas ediciones con Ctrl+Z.
+5. Avisos: copiar un muro (`Copy`), dibujar una caja en `ArchiMind::Muros` a 1 m de altura
+   (cota 1, fuera de todo nivel) y aplicar `BooleanDifference` a otro muro con una caja que lo
+   corte. «Lee los cambios»: «… está 2 veces en Rhino (¿una copia?)», «Muro nuevo a la cota 1.00
+   m: no está en ningún nivel» y, para el muro cortado, «su huella ya no es un rectángulo» o «no
+   se pudo leer». Deshacer esas tres ediciones con Ctrl+Z.
+6. Unidades: `Units` → Milímetros, contestando **Sí** a escalar los objetos. «Lee los cambios»
    debe dar los mismos cambios que en el paso 3, con las medidas en metros. Volver a metros del
    mismo modo.
-6. Pedir «Guarda el 3dm»: «Documento de Rhino guardado en …\salidas\casa-prueba.3dm». Cerrar
+7. Pedir «Guarda el 3dm»: «Documento de Rhino guardado en …\salidas\casa-prueba.3dm». Cerrar
    Rhino, abrirlo de nuevo, iniciar el puente y pedir «Abre el proyecto en Rhino»: «Las capas
    ArchiMind ya estaban al día… se conservan las ediciones hechas en Rhino», con las ediciones del
    paso 2 a la vista.
@@ -131,5 +145,7 @@ Lo que no se pudo comprobar sin Rhino, y qué paso lo confirma:
 - que las extrusiones suben desde la cota del nivel (Abrir, paso 2);
 - que un sólido escalado con el Gumball se sigue leyendo, sea extrusión o polisuperficie
   (Editar, paso 3);
-- la conversión de unidades del documento (Editar, paso 5);
-- que el texto del documento admite el `modelo.json` entero (Editar, paso 6).
+- que `ObjectAttributes.Name` guarda y devuelve el nombre del espacio, y que una `Box` y una
+  `PlanarSrf` dibujadas a mano se leen como prisma y como superficie (Editar, paso 4);
+- la conversión de unidades del documento (Editar, paso 6);
+- que el texto del documento admite el `modelo.json` entero (Editar, paso 7).

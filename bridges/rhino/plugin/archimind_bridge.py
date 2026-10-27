@@ -215,6 +215,8 @@ def check_load(project: Any, base_sha256: Any, base_model: Any, objects: Any) ->
     for item in objects:
         if not isinstance(item, dict) or not isinstance(item.get("id"), str):
             raise OpError("Cada objeto necesita un id.", status=400)
+        if not isinstance(item.get("name", ""), str):
+            raise OpError(f"{item['id']}: el nombre debe ser texto.", status=400)
         if item.get("layer") not in SUBLAYERS:
             raise OpError(f"{item['id']}: capa desconocida {item.get('layer')}.", status=400)
         kind = item.get("kind")
@@ -308,7 +310,7 @@ class RhinoOps:
             for item in objects:
                 attributes = Rhino.DocObjects.ObjectAttributes()
                 attributes.LayerIndex = layers[item["layer"]]
-                attributes.Name = item["id"]
+                attributes.Name = item.get("name") or item["id"]
                 attributes.SetUserString(ID_KEY, item["id"])
                 if item["kind"] == "prism":
                     guid = doc.Objects.AddExtrusion(_extrusion(item, k, tol), attributes)
@@ -332,6 +334,7 @@ class RhinoOps:
         objects = [
             {
                 "id": tag or None,
+                "name": obj.Attributes.Name or None,
                 "layer": layer,
                 "type": str(obj.ObjectType),
                 "faces": _faces(obj.Geometry, k),

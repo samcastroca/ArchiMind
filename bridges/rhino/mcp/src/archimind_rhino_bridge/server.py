@@ -25,6 +25,7 @@ from archimind_rhino_bridge.client import BridgeError, RhinoBridge
 from archimind_rhino_bridge.files import (
     ProjectError,
     ProjectModel,
+    applied_draft,
     create_empty_3dm,
     draft_file,
     load_model,
@@ -38,9 +39,10 @@ rhino-bridge lleva el modelo de un proyecto de ArchiMind a Rhino 8 y lee lo que 
 Hace falta Rhino abierto con el puente iniciado (un script que el usuario ejecuta en el editor de
 scripts de Rhino); si no responde, el error dice qué script ejecutar.
 Flujo: abrir_en_rhino (crea o abre salidas/<proyecto>.3dm con las capas ArchiMind::Muros, ::Vanos
-y ::Espacios) → el usuario edita en Rhino → leer_cambios (deja un borrador con lo modificado y lo
-borrado) → guardar_3dm cuando quiera conservar el archivo. estado_rhino dice si Rhino responde y
-si el documento es del proyecto.
+y ::Espacios) → el usuario edita en Rhino → leer_cambios (deja un borrador con lo modificado, lo
+nuevo y lo borrado) → aplicar_borrador de archimind-core lo guarda en el modelo → abrir_en_rhino
+recarga las capas. guardar_3dm cuando quiera conservar el archivo. estado_rhino dice si Rhino
+responde y si el documento es del proyecto.
 El modelo lo escribe solo archimind-core; este servidor nunca lo modifica. Las medidas salen de
 estas herramientas; no las calcules."""
 
@@ -164,6 +166,7 @@ def abrir_en_rhino(
         kept = _per_layer(state["objects"])
         return summaries.opened(target, None, kept, [], None, not project.scale_confirmed)
     discarded: list[str] = []
+    applied = False
     if same:
         try:
             pending = read_changes(_base(state), state["objects"], state["base_sha256"])
@@ -171,9 +174,10 @@ def abrir_en_rhino(
             if not descartar_cambios:
                 raise
         else:
-            if pending.draft is not None and not descartar_cambios:
+            applied = pending.draft is not None and pending.draft == applied_draft(model.folder)
+            if pending.draft is not None and not applied and not descartar_cambios:
                 raise ProjectError(summaries.pending(pending.lines))
-            discarded = pending.lines if pending.draft is not None else []
+            discarded = pending.lines if pending.draft is not None and not applied else []
     result: dict[str, Any] = bridge.call(
         "load_model_layers",
         project=str(model.folder),
@@ -184,7 +188,7 @@ def abrir_en_rhino(
     bridge.call("save_as", path=str(target))
     foreign = state.get("project") if state.get("project") and not same else None
     return summaries.opened(
-        target, result["loaded"], {}, discarded, foreign, not project.scale_confirmed
+        target, result["loaded"], {}, discarded, foreign, not project.scale_confirmed, applied
     )
 
 
@@ -192,17 +196,21 @@ def abrir_en_rhino(
 def leer_cambios(project_path: ProjectPath) -> str:
     """Lee lo que se editó en Rhino en las capas ArchiMind respecto del modelo que se cargó:
     muros movidos, girados, estirados o con otro espesor o alto, vanos desplazados o con otra
-    medida, espacios con otro contorno y lo que se borró. Lo deja en
+    medida, espacios con otro contorno o renombrados, lo que se borró y lo dibujado sin
+    archimind_id en las capas ArchiMind (muros, vanos y espacios nuevos). Lo deja en
     salidas/borrador_rhino.json sin modificar el modelo, y avisa de lo que no puede leer
-    (objetos nuevos sin archimind_id, copias, sólidos que ya no son prismas rectangulares).
-    Úsala cuando el usuario diga que terminó de editar en Rhino."""
+    (copias, sólidos que ya no son prismas rectangulares). Úsala cuando el usuario diga que
+    terminó de editar en Rhino; después, aplicar_borrador de archimind-core lo guarda."""
     model = load_model(project_path)
     state: dict[str, Any] = bridge.call("read_tagged_objects")
     _check_own(state.get("project"), model)
     result = read_changes(_base(state), state["objects"], state["base_sha256"])
+    stale = state["base_sha256"] != model.sha256
+    if stale and result.draft is not None and result.draft == applied_draft(model.folder):
+        write_draft(model.folder, None)
+        return summaries.already_applied(len(result.lines))
     had_draft = draft_file(model.folder).is_file()
     path = write_draft(model.folder, result.draft)
-    stale = state["base_sha256"] != model.sha256
     return summaries.changes(result, path, had_draft and path is None, stale)
 
 

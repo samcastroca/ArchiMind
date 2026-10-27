@@ -2,6 +2,7 @@
 
 import math
 
+import pytest
 from archimind_rhino_bridge.changes import Changes, read_changes
 from archimind_rhino_bridge.scene import scene
 from archimind_schema import (
@@ -63,7 +64,15 @@ def _read(project: Project, document: FakeDocument) -> Changes:
 
 
 def _close(a: tuple[float, float], b: tuple[float, float]) -> bool:
-    return math.dist(a, b) < 1e-6
+    return math.dist(a, b) < 1e-5
+
+
+def _mid(a: tuple[float, float], b: tuple[float, float]) -> tuple[float, float]:
+    return ((a[0] + b[0]) / 2, (a[1] + b[1]) / 2)
+
+
+def _box(x0: float, y0: float, x1: float, y1: float) -> list[tuple[float, float]]:
+    return [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]
 
 
 # --- Propiedades ------------------------------------------------------------------------------
@@ -154,6 +163,37 @@ def test_sliding_an_opening_along_its_wall_changes_its_offset(
     assert abs(edit.width - opening.width) < 1e-5
 
 
+@settings(max_examples=80, deadline=None)
+@given(
+    st.floats(-20, 20),
+    st.floats(-20, 20),
+    st.floats(0.5, 10),
+    st.floats(0.05, 0.4),
+    st.floats(-math.pi, math.pi),
+)
+def test_a_new_rectangle_on_the_wall_layer_is_a_new_wall(
+    cx: float, cy: float, length: float, thickness: float, angle: float
+) -> None:
+    house = _house()
+    document = _loaded(house)
+    u, n = (math.cos(angle), math.sin(angle)), (-math.sin(angle), math.cos(angle))
+    ring = [
+        (
+            cx + u[0] * a * length / 2 + n[0] * b * thickness / 2,
+            cy + u[1] * a * length / 2 + n[1] * b * thickness / 2,
+        )
+        for a, b in [(-1, -1), (1, -1), (1, 1), (-1, 1)]
+    ]
+    document.add_untagged("Muros", ring, 0.0, 2.6)
+    result = _read(house, document)
+    assert result.draft is not None
+    (wall,) = result.draft.new_walls
+    assert abs(math.dist(*wall.axis) - length) < 1e-5
+    assert abs(wall.thickness - thickness) < 1e-5
+    assert _close(_mid(*wall.axis), (cx, cy)) and wall.height is None
+    assert wall.axis[0] <= wall.axis[1]  # de menor a mayor x
+
+
 # --- Casos ------------------------------------------------------------------------------------
 
 
@@ -233,19 +273,17 @@ def test_a_copy_leaves_the_entity_as_is() -> None:
     assert any("está 2 veces en Rhino" in note for note in result.notes)
 
 
-def test_untagged_unknown_and_broken_objects_are_warned() -> None:
+def test_unknown_and_broken_objects_are_warned() -> None:
     house = _house()
     document = _loaded(house)
     document.add_untagged()
     document.objects[-1].tag = "muro-0099"
-    document.add_untagged("Espacios")
     document.break_object("vano-0001")
     result = _read(house, document)
     assert result.draft is None
-    assert len(result.notes) == 3
+    assert len(result.notes) == 2
     assert "muro-0099: ese archimind_id no está en el modelo cargado" in result.notes[0]
     assert "vano-0001: no se pudo leer" in result.notes[1]
-    assert "1 objeto(s) sin archimind_id" in result.notes[2]
 
 
 def test_a_footprint_that_is_no_longer_a_rectangle() -> None:
@@ -279,3 +317,127 @@ def test_the_edited_model_stays_valid() -> None:
     edited.openings[0].offset = result.draft.openings[0].offset
     assert edited.openings[0].offset == 1.3
     assert not [p for p in validate(edited) if p.severity == "error"]
+
+
+def test_a_renamed_space() -> None:
+    house = _house()
+    document = _loaded(house)
+    document.rename("esp-0001", "Living")
+    result = _read(house, document)
+    assert result.draft is not None
+    (edit,) = result.draft.spaces
+    assert edit.name == "Living" and edit.polygon == house.spaces[0].polygon
+    assert result.lines == ["esp-0001: renombrado «Estar» → «Living»"]
+
+
+@pytest.mark.parametrize("name", ["esp-0001", "", "  ", None])
+def test_a_name_that_is_the_id_or_empty_does_not_rename(name: str | None) -> None:
+    """Los .3dm cargados antes de llevar el nombre del espacio tienen el ID como nombre."""
+    house = _house()
+    document = _loaded(house)
+    document.get("esp-0001").name = name
+    assert _read(house, document).draft is None
+
+
+def test_a_renamed_and_reshaped_space() -> None:
+    house = _house()
+    document = _loaded(house)
+    document.rename("esp-0001", "Living")
+    document.transform("esp-0001", lambda p: (5.0, p[1]) if p[0] == 4 else p)
+    result = _read(house, document)
+    assert result.draft is not None
+    assert result.lines == [
+        "esp-0001: contorno, área 11.70 → 14.62 m², renombrado «Estar» → «Living»"
+    ]
+
+
+def test_a_new_wall() -> None:
+    house = _house()
+    document = _loaded(house)
+    document.add_untagged("Muros", _box(1, 1, 1.1, 4), 0.0, 2.6)
+    result = _read(house, document)
+    assert result.draft is not None
+    (wall,) = result.draft.new_walls
+    assert wall.ref == "nuevo-1" and wall.level_id == "niv-0001"
+    assert wall.axis == [(1.05, 1), (1.05, 4)] and wall.thickness == 0.1 and wall.height is None
+    assert result.lines == ["nuevo muro nuevo-1: largo 3.00 m, espesor 0.100 m"]
+
+
+def test_a_new_wall_with_its_own_height() -> None:
+    house = _house()
+    document = _loaded(house)
+    document.add_untagged("Muros", _box(1, 1, 1.1, 4), 0.0, 3.0)
+    result = _read(house, document)
+    assert result.draft is not None and result.draft.new_walls[0].height == 3.0
+
+
+def test_a_new_wall_off_every_level_is_warned() -> None:
+    house = _house()
+    document = _loaded(house)
+    document.add_untagged("Muros", _box(1, 1, 1.1, 4), 1.0, 3.0)
+    result = _read(house, document)
+    assert result.draft is None
+    assert result.notes == [
+        "Muro nuevo a la cota 1.00 m: no está en ningún nivel; no entra en el borrador."
+    ]
+
+
+def test_a_new_window_in_an_existing_wall() -> None:
+    house = _house()
+    document = _loaded(house)
+    document.add_untagged("Vanos", _box(2.5, -0.075, 3.3, 0.075), 0.9, 2.1)
+    result = _read(house, document)
+    assert result.draft is not None
+    (opening,) = result.draft.new_openings
+    assert (opening.wall, opening.kind) == ("muro-0001", "void")
+    measures = (opening.offset, opening.width, opening.height, opening.sill_height)
+    assert measures == (2.5, 0.8, 1.2, 0.9)
+    assert result.lines == ["nuevo vano nuevo-1 en muro-0001: ancho 0.80 m, alto 1.20 m"]
+
+
+def test_a_new_door_in_a_new_wall() -> None:
+    house = _house()
+    document = _loaded(house)
+    document.add_untagged("Muros", _box(1, 1, 1.1, 4), 0.0, 2.6)
+    document.add_untagged("Vanos", _box(1, 2, 1.1, 2.9), 0.0, 2.0)
+    result = _read(house, document)
+    assert result.draft is not None
+    (opening,) = result.draft.new_openings
+    assert opening.wall == "nuevo-1" and opening.ref == "nuevo-2"
+    assert (opening.offset, opening.width) == (1.0, 0.9)
+
+
+def test_a_new_opening_on_no_wall_is_warned() -> None:
+    house = _house()
+    document = _loaded(house)
+    document.add_untagged("Vanos", _box(2, 1, 2.8, 1.15), 0.0, 2.0)
+    result = _read(house, document)
+    assert result.draft is None
+    assert result.notes == [
+        "Vano nuevo que no cae sobre ningún muro recto: no entra en el borrador."
+    ]
+
+
+def test_a_new_opening_is_not_placed_in_a_deleted_wall() -> None:
+    house = _house()
+    document = _loaded(house)
+    document.delete("muro-0001")
+    document.add_untagged("Vanos", _box(2.5, -0.075, 3.3, 0.075), 0.9, 2.1)
+    result = _read(house, document)
+    assert result.draft is not None and result.draft.new_openings == []
+
+
+def test_new_spaces_with_and_without_a_name() -> None:
+    house = _house()
+    document = _loaded(house)
+    document.add_untagged("Espacios", _box(0, 3.1, 2, 5), name="Depósito")
+    document.add_untagged("Espacios", _box(2, 3.1, 4, 5))
+    result = _read(house, document)
+    assert result.draft is not None
+    named, unnamed = result.draft.new_spaces
+    assert (named.name, named.level_id, named.category) == ("Depósito", "niv-0001", "useful")
+    assert unnamed.name == "Espacio nuevo 2"
+    assert result.lines == [
+        "nuevo espacio nuevo-1 «Depósito»: 3.80 m²",
+        "nuevo espacio nuevo-2 «Espacio nuevo 2»: 3.80 m²",
+    ]

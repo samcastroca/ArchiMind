@@ -1,17 +1,22 @@
 """Lo que cambió en Rhino respecto del modelo que se cargó, como un `EditsDraft`.
 
-Cada objeto llega como lo devuelve el puente: su `archimind_id` y sus caras planas como bucles de
-puntos en metros (el exterior primero). Una entidad se reconoce por su ID, no por la capa. Se
-compara siempre contra el modelo cargado (el que guarda el .3dm), no contra el actual: así los
-cambios hechos después en ArchiMind no se leen como ediciones de Rhino.
+Cada objeto llega como lo devuelve el puente: su `archimind_id`, su nombre y sus caras planas como
+bucles de puntos en metros (el exterior primero). Una entidad se reconoce por su ID, no por la
+capa. Se compara siempre contra el modelo cargado (el que guarda el .3dm), no contra el actual:
+así los cambios hechos después en ArchiMind no se leen como ediciones de Rhino.
 
 - Un muro recto se lee de la huella de su prisma, que tiene que seguir siendo un rectángulo: el
   eje va por el medio, a lo largo, y conserva el sentido del original; el espesor es el ancho y la
   altura, la del prisma. Un muro de varios tramos solo se compara: Rhino no lo edita.
 - Un vano se lee en su muro (el nuevo, si el muro cambió): offset y ancho a lo largo del eje,
   antepecho y alto del prisma. Si quedó fuera del muro, conserva su posición en él.
-- Un espacio se lee de su cara horizontal, con sus huecos.
+- Un espacio se lee de su cara horizontal, con sus huecos, y su nombre del nombre del objeto (uno
+  vacío o igual al ID no lo renombra).
 - Los IDs que ya no están en Rhino se borran, y con un muro, sus vanos.
+- Lo dibujado sin `archimind_id` en una subcapa ArchiMind es nuevo, con un `ref` temporal
+  (`nuevo-N`) al que core pone un ID: en Muros, un prisma rectangular a la cota de un nivel; en
+  Vanos, un prisma sobre un muro recto (existente o nuevo), sin tipo (`void`); en Espacios, una
+  superficie plana, con el nombre del objeto.
 
 Lo que cambia menos que la tolerancia (0.001 m) no cuenta; lo que no se puede leer queda igual y
 se avisa.
@@ -25,6 +30,10 @@ from archimind_schema import (
     ANGLE_TOL_DEG,
     LENGTH_TOL,
     EditsDraft,
+    Level,
+    NewOpening,
+    NewSpace,
+    NewWall,
     Opening,
     OpeningEdit,
     Point2D,
@@ -45,6 +54,7 @@ from shapely.geometry.polygon import orient
 # Las medidas leídas se guardan al micrómetro: el ruido de coma flotante no llega al modelo.
 DECIMALS = 6
 _SIN_TOL = math.sin(math.radians(ANGLE_TOL_DEG))
+NEW_SPACE_NAME = "Espacio nuevo"
 
 Record = dict[str, Any]
 
@@ -52,7 +62,7 @@ Record = dict[str, Any]
 @dataclass(frozen=True)
 class Changes:
     draft: EditsDraft | None
-    lines: list[str]  # una por entidad modificada o borrada, sin coordenadas
+    lines: list[str]  # una por entidad modificada, nueva o borrada, sin coordenadas
     notes: list[str]  # lo que no entra en el borrador y por qué
 
 
@@ -72,16 +82,28 @@ class _Line:
     thickness: float
 
 
+class _Refs:
+    """Los `ref` temporales de las entidades nuevas: nuevo-1, nuevo-2…"""
+
+    def __init__(self) -> None:
+        self.count = 0
+
+    def next(self) -> str:
+        self.count += 1
+        return f"nuevo-{self.count}"
+
+
 def read_changes(base: Project, objects: list[Record], base_sha256: str) -> Changes:
     entities: list[Wall | Opening | Space] = [*base.walls, *base.openings, *base.spaces]
     known = {entity.id for entity in entities}
     notes: list[str] = []
     found: dict[str, list[Record]] = {}
-    untagged = 0
+    untagged: dict[str, list[Record]] = {}  # por subcapa
     for record in objects:
         tag = record.get("id")
         if not tag:
-            untagged += 1
+            layer = str(record.get("layer", "")).rsplit("::", 1)[-1]
+            untagged.setdefault(layer, []).append(record)
         elif tag not in known:
             notes.append(f"{tag}: ese archimind_id no está en el modelo cargado; se ignora.")
         else:
@@ -97,6 +119,7 @@ def read_changes(base: Project, objects: list[Record], base_sha256: str) -> Chan
 
     elevations = {level.id: level.elevation for level in base.levels}
     lines: list[str] = []
+    refs = _Refs()
     deleted = [entity.id for entity in entities if entity.id not in present]
     deleted_walls = {wall_id for wall_id in deleted if wall_id.startswith("muro-")}
 
@@ -114,6 +137,16 @@ def read_changes(base: Project, objects: list[Record], base_sha256: str) -> Chan
             lines_by_wall[wall.id] = line
             wall_edits.append(edit)
             lines.append(description)
+
+    new_walls: list[NewWall] = []
+    wall_levels = {wall.id: wall.level_id for wall in base.walls}
+    for record in untagged.get("Muros", []):
+        new_wall = _read_new_wall(base.levels, record, refs, notes)
+        if new_wall is not None:
+            new_walls.append(new_wall[0])
+            lines_by_wall[new_wall[0].ref] = new_wall[1]
+            wall_levels[new_wall[0].ref] = new_wall[0].level_id
+            lines.append(new_wall[2])
 
     opening_edits: list[OpeningEdit] = []
     walls = {wall.id: wall for wall in base.walls}
@@ -140,6 +173,14 @@ def read_changes(base: Project, objects: list[Record], base_sha256: str) -> Chan
             opening_edits.append(opening_result[0])
             lines.append(opening_result[1])
 
+    new_openings: list[NewOpening] = []
+    hosts = {key: line for key, line in lines_by_wall.items() if key not in deleted_walls}
+    for record in untagged.get("Vanos", []):
+        new_opening = _read_new_opening(record, hosts, wall_levels, elevations, refs, notes)
+        if new_opening is not None:
+            new_openings.append(new_opening[0])
+            lines.append(new_opening[1])
+
     space_edits: list[SpaceEdit] = []
     for space in base.spaces:
         space_record = present.get(space.id)
@@ -150,6 +191,13 @@ def read_changes(base: Project, objects: list[Record], base_sha256: str) -> Chan
             space_edits.append(space_result[0])
             lines.append(space_result[1])
 
+    new_spaces: list[NewSpace] = []
+    for record in untagged.get("Espacios", []):
+        new_space = _read_new_space(base.levels, record, refs, notes)
+        if new_space is not None:
+            new_spaces.append(new_space[0])
+            lines.append(new_space[1])
+
     for entity_id in deleted:
         wall_id = next((o.wall_id for o in base.openings if o.id == entity_id), None)
         lines.append(
@@ -157,15 +205,9 @@ def read_changes(base: Project, objects: list[Record], base_sha256: str) -> Chan
             if wall_id in deleted_walls
             else f"{entity_id}: borrado"
         )
-    if untagged:
-        notes.append(
-            f"{untagged} objeto(s) sin archimind_id en las capas ArchiMind: no entran en el "
-            "borrador (los objetos nuevos no se leen). Para rehacer un objeto, copia su "
-            "archimind_id al nuevo en Propiedades → Texto de usuario de atributos."
-        )
 
     draft = None
-    if wall_edits or opening_edits or space_edits or deleted:
+    if wall_edits or opening_edits or space_edits or deleted or refs.count:
         draft = EditsDraft(
             source="rhino",
             base_sha256=base_sha256,
@@ -173,6 +215,9 @@ def read_changes(base: Project, objects: list[Record], base_sha256: str) -> Chan
             openings=opening_edits,
             spaces=space_edits,
             deleted=deleted,
+            new_walls=new_walls,
+            new_openings=new_openings,
+            new_spaces=new_spaces,
         )
     return Changes(draft, lines, notes)
 
@@ -206,9 +251,9 @@ def _read_wall(
     if corners is None:
         notes.append(f"{wall.id}: su huella ya no es un rectángulo; se deja igual.")
         return None
-    line = _wall_line(corners, wall)
-    height = prism.z1 - prism.z0
     start, end = wall.axis[0], wall.axis[-1]
+    line = _wall_line(corners, (start, end), wall_length(wall) >= wall.thickness)
+    height = prism.z1 - prism.z0
     moved = max(math.dist(line.start, start), math.dist(line.end, end))
     changes = []
     if moved > LENGTH_TOL:
@@ -233,23 +278,62 @@ def _read_wall(
     return edit, line, f"{wall.id}: {', '.join(changes)}"
 
 
-def _wall_line(corners: list[Point2D], wall: Wall) -> _Line:
+def _read_new_wall(
+    levels: list[Level], record: Record, refs: _Refs, notes: list[str]
+) -> tuple[NewWall, _Line, str] | None:
+    prism = _prism(record)
+    if isinstance(prism, str):
+        notes.append(f"Objeto nuevo en Muros: no se pudo leer ({prism}); no entra en el borrador.")
+        return None
+    level = _level_at(levels, prism.z0)
+    if level is None:
+        notes.append(
+            f"Muro nuevo a la cota {prism.z0:.2f} m: no está en ningún nivel; no entra en el "
+            "borrador."
+        )
+        return None
+    corners = _rectangle(prism.footprint)
+    if corners is None:
+        notes.append("Muro nuevo cuya huella no es un rectángulo: no entra en el borrador.")
+        return None
+    line = _wall_line(corners, None)
+    height = prism.z1 - prism.z0
+    ref = refs.next()
+    edit = NewWall(
+        ref=ref,
+        level_id=level.id,
+        axis=[_point(line.start), _point(line.end)],
+        thickness=_round(line.thickness),
+        height=None if abs(height - level.default_height) <= LENGTH_TOL else _round(height),
+    )
+    length = math.dist(line.start, line.end)
+    return edit, line, f"nuevo muro {ref}: largo {length:.2f} m, espesor {line.thickness:.3f} m"
+
+
+def _wall_line(
+    corners: list[Point2D], original: tuple[Point2D, Point2D] | None, along_long: bool = True
+) -> _Line:
     """El eje por el medio del rectángulo, a lo largo del lado largo (o del corto, si el muro del
-    modelo es más corto que su espesor), con el sentido del eje original."""
+    modelo es más corto que su espesor), con el sentido del eje `original`; sin original (un muro
+    nuevo), de menor a mayor x y luego y."""
     a, b, c, d = corners
     first, second = math.dist(a, b), math.dist(b, c)
-    direction = _unit(wall.axis[0], wall.axis[-1])
-    if abs(first - second) <= LENGTH_TOL:
+    direction = _unit(*original) if original else None
+    if direction is not None and abs(first - second) <= LENGTH_TOL:
         along_first = abs(_dot(_unit(a, b), direction)) >= abs(_dot(_unit(b, c), direction))
     else:
-        along_first = (first > second) == (wall_length(wall) >= wall.thickness)
+        along_first = (first > second) == along_long
     if along_first:  # el eje es paralelo a ab: une los lados da y bc
         start, end, thickness = _mid(d, a), _mid(b, c), second
     else:
         start, end, thickness = _mid(a, b), _mid(c, d), first
+    if original is None or direction is None:
+        if _point(end) < _point(start):
+            start, end = end, start
+        return _Line(start, end, thickness)
     alignment = _dot(_unit(start, end), direction)
     if alignment < 0 or (
-        alignment == 0 and math.dist(end, wall.axis[0]) < math.dist(start, wall.axis[0])
+        alignment == 0 and math.dist(end, original[0]) < math.dist(start, original[0])
     ):
         start, end = end, start
     return _Line(start, end, thickness)
@@ -285,25 +369,14 @@ def _read_opening(
     if corners is None:
         notes.append(f"{opening.id}: su huella ya no es un rectángulo; se deja igual.")
         return None
-    direction = _unit(line.start, line.end)
-    normal = (-direction[1], direction[0])
-    side = _unit(corners[0], corners[1])
-    parallel = abs(_cross(side, direction)) <= _SIN_TOL or abs(_dot(side, direction)) <= _SIN_TOL
-    along = [_dot(_sub(p, line.start), direction) for p in corners]
-    across = sum(_dot(_sub(p, line.start), normal) for p in corners) / 4
-    length = math.dist(line.start, line.end)
-    offset, width = min(along), max(along) - min(along)
-    if (
-        not parallel
-        or abs(across) > line.thickness / 2 + LENGTH_TOL
-        or offset < -LENGTH_TOL
-        or offset + width > length + LENGTH_TOL
-    ):
+    placed = _place(corners, line)
+    if placed is None:
         notes.append(
             f"{opening.id} ya no está sobre su muro {wall.id} en Rhino: conserva su posición en "
             "el muro."
         )
         return None
+    offset, width, _ = placed
     sill, height = prism.z0 - elevation, prism.z1 - prism.z0
     changes = []
     if abs(offset - opening.offset) > LENGTH_TOL:
@@ -326,38 +399,157 @@ def _read_opening(
     return edit, f"{opening.id}: {', '.join(changes)}"
 
 
+def _read_new_opening(
+    record: Record,
+    hosts: dict[str, _Line],
+    wall_levels: dict[str, str],
+    elevations: dict[str, float],
+    refs: _Refs,
+    notes: list[str],
+) -> tuple[NewOpening, str] | None:
+    """Un vano nuevo va en el muro recto sobre el que cae; si cae en varios, en el más centrado."""
+    prism = _prism(record)
+    if isinstance(prism, str):
+        notes.append(f"Objeto nuevo en Vanos: no se pudo leer ({prism}); no entra en el borrador.")
+        return None
+    corners = _rectangle(prism.footprint)
+    if corners is None:
+        notes.append("Vano nuevo cuya huella no es un rectángulo: no entra en el borrador.")
+        return None
+    candidates = []
+    for wall_id, line in hosts.items():
+        placed = _place(corners, line)
+        if placed is not None:
+            candidates.append((abs(placed[2]), wall_id, placed))
+    if not candidates:
+        notes.append("Vano nuevo que no cae sobre ningún muro recto: no entra en el borrador.")
+        return None
+    _, wall_id, (offset, width, _) = min(candidates)
+    sill, height = prism.z0 - elevations[wall_levels[wall_id]], prism.z1 - prism.z0
+    if sill < -LENGTH_TOL:
+        notes.append(f"Vano nuevo en {wall_id} que empieza bajo el piso: no entra en el borrador.")
+        return None
+    ref = refs.next()
+    edit = NewOpening(
+        ref=ref,
+        wall=wall_id,
+        offset=_round(max(offset, 0.0)),
+        width=_round(width),
+        height=_round(height),
+        sill_height=_round(max(sill, 0.0)),
+    )
+    return edit, f"nuevo vano {ref} en {wall_id}: ancho {width:.2f} m, alto {height:.2f} m"
+
+
+def _place(corners: list[Point2D], line: _Line) -> tuple[float, float, float] | None:
+    """Offset y ancho a lo largo del eje, y distancia al eje, de un rectángulo que cae dentro del
+    muro con sus lados paralelos al eje; None si no cae."""
+    direction = _unit(line.start, line.end)
+    normal = (-direction[1], direction[0])
+    side = _unit(corners[0], corners[1])
+    parallel = abs(_cross(side, direction)) <= _SIN_TOL or abs(_dot(side, direction)) <= _SIN_TOL
+    along = [_dot(_sub(p, line.start), direction) for p in corners]
+    across = sum(_dot(_sub(p, line.start), normal) for p in corners) / 4
+    length = math.dist(line.start, line.end)
+    offset, width = min(along), max(along) - min(along)
+    if (
+        not parallel
+        or abs(across) > line.thickness / 2 + LENGTH_TOL
+        or offset < -LENGTH_TOL
+        or offset + width > length + LENGTH_TOL
+    ):
+        return None
+    return offset, width, across
+
+
 # --- Espacios ---------------------------------------------------------------------------------
 
 
 def _read_space(
     space: Space, record: Record, elevation: float, notes: list[str]
 ) -> tuple[SpaceEdit, str] | None:
-    faces = record.get("faces") or []
-    flat = [face for face in faces if face and _flat(face)]
-    if not flat:
+    face = _flat_face(record)
+    if face is None:
         notes.append(f"{space.id}: no se pudo leer (no es una superficie plana); se deja igual.")
         return None
-    face = max(flat, key=lambda f: Polygon(_ring(f[0])).area)
     if abs(face[0][0][2] - elevation) > LENGTH_TOL:
         notes.append(f"{space.id} se movió en vertical: la cota de un espacio es la de su nivel.")
-    polygon = orient(Polygon(_ring(face[0]), [_ring(hole) for hole in face[1:]]), 1.0)
+    polygon = _face_polygon(face)
     if not polygon.is_valid:
         notes.append(f"{space.id}: su contorno no es un polígono válido; se deja igual.")
         return None
     before = Polygon(space.polygon.exterior, space.polygon.holes)
-    if _distance(polygon, before) <= LENGTH_TOL:
+    name = record.get("name") or ""
+    renamed = bool(name.strip()) and name not in (space.id, space.name)
+    reshaped = _distance(polygon, before) > LENGTH_TOL
+    if not (renamed or reshaped):
         return None
+    changes = []
+    if reshaped:
+        changes.append(f"contorno, área {before.area:.2f} → {polygon.area:.2f} m²")
+    if renamed:
+        changes.append(f"renombrado «{space.name}» → «{name}»")
     edit = SpaceEdit(
         id=space.id,
-        polygon=SpacePolygon(
-            exterior=[_point(p) for p in polygon.exterior.coords[:-1]],
-            holes=[[_point(p) for p in hole.coords[:-1]] for hole in polygon.interiors],
-        ),
+        polygon=_space_polygon(polygon) if reshaped else space.polygon,
+        name=name if renamed else space.name,
     )
-    return edit, f"{space.id}: contorno, área {before.area:.2f} → {polygon.area:.2f} m²"
+    return edit, f"{space.id}: {', '.join(changes)}"
+
+
+def _read_new_space(
+    levels: list[Level], record: Record, refs: _Refs, notes: list[str]
+) -> tuple[NewSpace, str] | None:
+    face = _flat_face(record)
+    if face is None:
+        notes.append(
+            "Objeto nuevo en Espacios que no es una superficie plana: no entra en el borrador."
+        )
+        return None
+    level = _level_at(levels, face[0][0][2])
+    if level is None:
+        notes.append(
+            f"Espacio nuevo a la cota {face[0][0][2]:.2f} m: no está en ningún nivel; no entra en "
+            "el borrador."
+        )
+        return None
+    polygon = _face_polygon(face)
+    if not polygon.is_valid:
+        notes.append(
+            "Espacio nuevo cuyo contorno no es un polígono válido: no entra en el borrador."
+        )
+        return None
+    ref = refs.next()
+    name = (record.get("name") or "").strip() or f"{NEW_SPACE_NAME} {ref.removeprefix('nuevo-')}"
+    edit = NewSpace(ref=ref, level_id=level.id, name=name, polygon=_space_polygon(polygon))
+    return edit, f"nuevo espacio {ref} «{name}»: {polygon.area:.2f} m²"
+
+
+def _flat_face(record: Record) -> list[list[list[float]]] | None:
+    """La cara plana mayor del objeto, o None si no tiene ninguna."""
+    faces: list[list[list[list[float]]]] = record.get("faces") or []
+    flat = [face for face in faces if face and _flat(face)]
+    if not flat:
+        return None
+    return max(flat, key=lambda f: Polygon(_ring(f[0])).area)
+
+
+def _face_polygon(face: list[list[list[float]]]) -> Polygon:
+    return orient(Polygon(_ring(face[0]), [_ring(hole) for hole in face[1:]]), 1.0)
+
+
+def _space_polygon(polygon: Polygon) -> SpacePolygon:
+    return SpacePolygon(
+        exterior=[_point(p) for p in polygon.exterior.coords[:-1]],
+        holes=[[_point(p) for p in hole.coords[:-1]] for hole in polygon.interiors],
+    )
 
 
 # --- Geometría --------------------------------------------------------------------------------
+
+
+def _level_at(levels: list[Level], z: float) -> Level | None:
+    return next((level for level in levels if abs(level.elevation - z) <= LENGTH_TOL), None)
 
 
 def _prism(record: Record) -> _Prism | str:
