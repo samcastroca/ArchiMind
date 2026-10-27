@@ -7,9 +7,146 @@ carpintería, axonometrías y cortes, todo a través de servidores MCP usados de
 Es un workspace de [uv](https://docs.astral.sh/uv/) con Python >= 3.11. Para instalarlo y
 probarlo: `uv sync` y luego `uv run pytest`. Arquitectura, reglas y comandos en [CLAUDE.md](CLAUDE.md).
 
+## Instalación paso a paso (Windows)
+
+Esta guía no necesita saber programar. Se hace una sola vez y toma unos 20 minutos. Hace falta
+un equipo con Windows 10 u 11, conexión a internet, una cuenta de Claude y una cuenta de GitHub
+con acceso a este repositorio (es privado: hay que pedir la invitación al dueño).
+
+En varios pasos se usa **PowerShell**, la ventana de comandos de Windows: se abre con el botón
+Inicio, escribiendo `PowerShell` y pulsando Intro. Para ejecutar un comando, se copia de esta
+guía, se pega en la ventana con clic derecho y se pulsa Intro.
+
+### 1. Instalar Claude Desktop
+
+Descargarlo desde <https://claude.ai/download>, instalarlo y entrar con la cuenta de Claude.
+
+### 2. Instalar Git
+
+ArchiMind lo usa para guardar el historial de cada proyecto (cada cambio queda como una
+versión a la que se puede volver). Descargar el instalador de Windows desde
+<https://git-scm.com/downloads/win> y ejecutarlo pulsando **Next** en todas las pantallas, sin
+cambiar nada.
+
+### 3. Instalar uv
+
+uv es el programa que descarga Python y todo lo que ArchiMind necesita, y lo pone en marcha. No
+hace falta instalar Python aparte. En PowerShell, ejecutar:
+
+```
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+
+Al terminar, **cerrar PowerShell y abrirlo de nuevo**, y comprobar que quedó instalado con:
+
+```
+uv --version
+```
+
+Debe responder algo como `uv 0.9.x`. Si dice que no reconoce `uv`, reiniciar el equipo y
+probar otra vez.
+
+### 4. Descargar ArchiMind
+
+1. Entrar en GitHub con la cuenta invitada y abrir la página de este repositorio.
+2. Pulsar el botón verde **Code** y luego **Download ZIP**.
+3. Abrir el ZIP descargado (en la carpeta Descargas), pulsar **Extraer todo** y elegir una
+   carpeta fácil de encontrar, p. ej. `C:\ArchiMind`.
+4. Entrar en la carpeta extraída hasta ver los archivos `README.md` y `pyproject.toml`: esa es
+   la carpeta de ArchiMind. A veces el ZIP crea una carpeta dentro de otra
+   (`ArchiMind-main\ArchiMind-main`); lo que cuenta es la que tiene esos archivos.
+5. Copiar su ruta: hacer clic en la barra de direcciones del Explorador (arriba, donde aparece
+   la ubicación) y copiar el texto, p. ej. `C:\ArchiMind\ArchiMind-main`. Se usa en los pasos
+   5 y 6.
+
+### 5. Preparar ArchiMind
+
+En PowerShell, ejecutar estos dos comandos, cambiando la ruta por la copiada en el paso 4 (con
+las comillas):
+
+```
+cd "C:\ArchiMind\ArchiMind-main"
+uv sync
+```
+
+`uv sync` descarga Python y las librerías; la primera vez puede tardar unos minutos. Termina
+cuando la ventana vuelve a mostrar la ruta y queda esperando otro comando.
+
+### 6. Conectar ArchiMind con Claude Desktop
+
+1. En Claude Desktop, abrir **Configuración → Desarrollador → Editar configuración**. Se abre
+   la carpeta donde está el archivo `claude_desktop_config.json`.
+2. Abrirlo con el Bloc de notas: clic derecho sobre el archivo → **Abrir con** → **Bloc de
+   notas**.
+3. Si el archivo está vacío o solo tiene `{}`, borrar lo que haya y pegar el bloque de abajo. Si
+   ya tiene otras cosas, seguir las indicaciones de [Uso desde Claude
+   Desktop](#uso-desde-claude-desktop) para no estropearlo.
+4. En el bloque pegado, cambiar las dos veces que aparece `C:\\RUTA\\ABSOLUTA\\A\\ArchiMind` por
+   la ruta del paso 4, **escribiendo cada barra `\` dos veces**: `C:\ArchiMind\ArchiMind-main`
+   se escribe `C:\\ArchiMind\\ArchiMind-main`. Hay que conservar las comillas.
+5. Guardar (Ctrl + G o Archivo → Guardar) y cerrar el Bloc de notas.
+
+```json
+{
+  "mcpServers": {
+    "archimind-core": {
+      "command": "uv",
+      "args": ["run", "--directory", "C:\\RUTA\\ABSOLUTA\\A\\ArchiMind", "--package", "archimind-core", "archimind-core"],
+      "env": { "PYTHONUTF8": "1" }
+    },
+    "archimind-bloques": {
+      "command": "uv",
+      "args": ["run", "--directory", "C:\\RUTA\\ABSOLUTA\\A\\ArchiMind", "--package", "archimind-bloques", "archimind-bloques"],
+      "env": { "PYTHONUTF8": "1" }
+    }
+  }
+}
+```
+
+### 7. Reiniciar Claude Desktop y comprobar
+
+1. Cerrar Claude Desktop **del todo**: cerrar la ventana no basta. Hay que buscar su icono en la
+   bandeja del sistema (junto al reloj, a veces detrás de la flecha `^`), hacer clic derecho y
+   elegir **Salir**.
+2. Abrirlo de nuevo y entrar en **Configuración → Desarrollador**: deben aparecer
+   `archimind-core` y `archimind-bloques`, los dos en marcha (*running*).
+3. Probarlo en un chat nuevo con un plano de ejemplo que viene incluido, cambiando las rutas por
+   las de este equipo:
+
+   > Abre el proyecto en C:\Users\<usuario>\Documents\ArchiMind-proyectos\prueba e importa el
+   > plano C:\ArchiMind\ArchiMind-main\tests\golden\apto_2hab\input.dxf
+
+   Claude pide permiso para usar las herramientas de ArchiMind: pulsar **Permitir**. Debe
+   responder con las capas del plano y sus unidades. A partir de ahí basta con pedirle lo
+   siguiente en lenguaje normal (proponer el mapeo de capas, confirmar la escala, el cuadro de
+   áreas, exportar el plano…).
+
+Conviene guardar los proyectos **fuera** de la carpeta de ArchiMind (como en el ejemplo, en
+Documentos): así, al actualizar ArchiMind no se tocan.
+
+### Si algo falla
+
+- **Un servidor aparece con error en Configuración → Desarrollador**: ahí mismo está el botón
+  para abrir los registros (`mcp-server-archimind-core.log`); las últimas líneas suelen decir
+  qué pasa.
+- **El registro dice que no encuentra `uv`**: en PowerShell, ejecutar `where.exe uv`. Responde
+  con una ruta como `C:\Users\<usuario>\.local\bin\uv.exe`; en el archivo de configuración, poner
+  esa ruta en lugar de `"uv"` en las dos líneas `"command"`, con las barras dobles
+  (`"C:\\Users\\<usuario>\\.local\\bin\\uv.exe"`), y reiniciar Claude Desktop como en el paso 7.
+- **Claude Desktop dice que la configuración no es válida**: casi siempre falta o sobra una coma
+  o una comilla, o hay una barra `\` simple. Comparar con el bloque del paso 6.
+- **Un plano DWG no se puede abrir o exportar**: hace falta un programa más, ver
+  [DWG: ODA File Converter](#dwg-oda-file-converter-opcional). Con DXF no hace falta.
+
+### Actualizar ArchiMind
+
+Descargar el ZIP de nuevo (paso 4), reemplazar la carpeta de ArchiMind por la nueva **en la
+misma ubicación**, repetir el paso 5 y reiniciar Claude Desktop (paso 7). Si la carpeta queda
+en la misma ruta, no hay que cambiar la configuración.
+
 ## Uso desde Claude Desktop
 
-Hace falta [uv](https://docs.astral.sh/uv/) y [git](https://git-scm.com/downloads) instalados.
+Referencia técnica de la configuración; la guía de arriba cubre el caso habitual. Hace falta [uv](https://docs.astral.sh/uv/) y [git](https://git-scm.com/downloads) instalados.
 Hay dos servidores: `archimind-core` (planos y modelo) y `archimind-bloques` (carpintería). Se
 declaran en `claude_desktop_config.json`. Para abrirlo, en Claude Desktop:
 **Configuración → Desarrollador → Editar configuración**. Así se abre (o se crea) el archivo
