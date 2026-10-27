@@ -9,11 +9,12 @@ from collections import Counter
 from collections.abc import Sequence
 from pathlib import Path
 
-from archimind_schema import Problem, Project, validate
+from archimind_schema import EditsDraft, Problem, Project, validate
 
 from archimind_core.blocks import BlocksAssignment
 from archimind_core.build import BuildResult
-from archimind_core.compare import VersionDiff
+from archimind_core.compare import VersionDiff, compare_versions
+from archimind_core.edits import EditsResult
 from archimind_core.history import Version, recent_versions
 from archimind_core.inventory import LayerSummary
 from archimind_core.layer_roles import ROLE_NAMES, LayerProposal
@@ -230,6 +231,51 @@ def blocks_assigned(result: BlocksAssignment, version: str | None) -> str:
     problems = [p for p in validate(result.project) if p.code.startswith("bloque_")]
     lines += [f"  {_problem_line(p)}" for p in problems[:3]]
     return _text([*lines, *_version_line(version)])
+
+
+def edits_count(draft: EditsDraft) -> int:
+    edited = len(draft.walls) + len(draft.openings) + len(draft.spaces) + len(draft.deleted)
+    return edited + len(draft.new_walls) + len(draft.new_openings) + len(draft.new_spaces)
+
+
+def edits_commit_message(draft: EditsDraft) -> str:
+    return f"Aplica {count(edits_count(draft), 'cambio', 'cambios')} de Rhino"
+
+
+def edits_applied(
+    before: Project, draft: EditsDraft, result: EditsResult, version: str | None
+) -> str:
+    diff = compare_versions(before, result.project)
+    lines = [f"Borrador de Rhino aplicado: {count(edits_count(draft), 'cambio', 'cambios')}."]
+    groups = [
+        ("Muros editados", [edit.id for edit in draft.walls]),
+        ("Vanos editados", [edit.id for edit in draft.openings]),
+        ("Borrados", draft.deleted),
+    ]
+    lines += [f"{label}: {_ids(ids)}." for label, ids in groups if ids]
+    new = [f"{ref} → {entity_id}" for ref, entity_id in result.new_ids.items()]
+    if new:
+        lines.append(f"Nuevos: {_ids(new)}.")
+    lines += [f"Renombrado: {i} «{old}» → «{name}»." for i, old, name in result.renamed[:5]]
+    if diff.spaces_changed:
+        lines.append(f"Espacios con otra área{_label(diff.label)}:")
+        lines += truncate(
+            [
+                f"  {c.id} {c.name}: {c.area_before:.2f} → {c.area_after:.2f} m²"
+                for c in diff.spaces_changed
+            ],
+            15,
+        )
+    if result.removed_blocks:
+        lines.append(f"Bloques que quedaron sin uso, quitados: {_ids(result.removed_blocks)}.")
+    known = {(p.code, tuple(p.ids)) for p in validate(before)}
+    fresh = [p for p in result.problems if (p.code, tuple(p.ids)) not in known]
+    if fresh:
+        lines.append(f"Avisos nuevos ({count(len(fresh), 'aviso')}):")
+        lines += truncate([f"  {_problem_line(p)}" for p in fresh], 10)
+    lines += _version_line(version)
+    lines.append("El cuadro de áreas actualizado sale con cuadro_de_areas.")
+    return _text(lines)
 
 
 def areas(project: Project, table: AreaTable, csv_path: Path | None) -> str:

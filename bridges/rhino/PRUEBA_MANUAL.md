@@ -111,6 +111,54 @@ Antes de cada lectura, terminar el comando en curso (Esc).
    ArchiMind ya estaban al día… se conservan las ediciones hechas en Rhino», con las ediciones del
    paso 2 a la vista.
 
+## Ciclo de edición con apto_2hab
+
+El ciclo completo: editar en Rhino, guardar la edición en el modelo y ver sus cantidades nuevas.
+Se hace con un proyecto recién creado, sin las ediciones de las secciones anteriores.
+
+1. Crear el proyecto desde core: «Abre el proyecto C:\Temp\apto-ciclo, importa
+   `<repositorio>\tests\golden\apto_2hab\input.dxf`, propón el mapeo y aplícalo, y confirma la
+   escala».
+2. «Dame el cuadro de áreas de C:\Temp\apto-ciclo». Anotar: **Habitación 1 9.19 m²**,
+   **Habitación 2 11.52 m²**, Baño 2.93 m², Sala-comedor-cocina 27.21 m² y el área útil.
+3. «Abre el proyecto en Rhino»: «8 muros, 9 vanos, 4 espacios».
+4. En Rhino, vista **Superior**: seleccionar el tabique de 0.10 m que separa las dos habitaciones
+   (el muro horizontal a la izquierda, a 3.60 m del borde inferior) y anotar su `archimind_id` en
+   **Propiedades → Texto de usuario de atributos**. `Move` → punto base cualquiera → escribir
+   `r0,0.2` e Intro: el tabique sube 20 cm (de y = 3.60 a y = 3.80). Esc para terminar.
+5. «Lee los cambios»: «1 cambio(s) en Rhino…», «- muro-…: movido 0.20 m» (el ID anotado),
+   «Borrador: …\salidas\borrador_rhino.json» y «Para guardarlo en el modelo: aplicar_borrador de
+   archimind-core». `modelo.json` sigue igual.
+6. «Aplica el borrador»: «Borrador de Rhino aplicado: 1 cambio.», «Muros editados: muro-…»,
+   «Espacios con otra área:» con **Habitación 1: 9.19 → 8.52 m²** y **Habitación 2: 11.52 →
+   12.19 m²**, y «Versión …». En la carpeta, `salidas\borrador_rhino.json` pasó a
+   `salidas\borrador_rhino.aplicado.json`, y `git log --oneline -1` (en
+   C:\Temp\apto-ciclo) muestra «Aplica 1 cambio de Rhino».
+7. «Dame el cuadro de áreas»: **Habitación 1 8.52 m²**, **Habitación 2 12.19 m²**; Baño,
+   Sala-comedor-cocina, el área útil y la construida, iguales que en el paso 2. El CSV
+   `salidas\cuadro_de_areas.csv` tiene los valores nuevos.
+8. «Lee los cambios» otra vez: «Los 1 cambio(s) de Rhino ya se aplicaron al modelo…». «Abre el
+   proyecto en Rhino»: recarga las capas («Las ediciones que había en Rhino ya estaban aplicadas
+   en el modelo»), sin pedir descartar nada; el tabique queda en y = 3.80.
+
+Variantes, cada una desde el estado del paso 8 y terminando con «Aplica el borrador» y el cuadro
+de áreas:
+
+- **Renombrar**: en **Propiedades** de la superficie de Habitación 1, Nombre `Estudio`. «Lee los
+  cambios» → «renombrado «Habitación 1» → «Estudio»»; al aplicar, «Renombrado: …» y el cuadro
+  de áreas dice Estudio con la misma área.
+- **Muro nuevo**: en `ArchiMind::Muros`, `Box` de 0.10 m × 4.80 m en planta, de (5.45, 0) a
+  (5.55, 4.80), 2.60 m de alto desde la cota 0 (parte la sala en dos). Al aplicar: «Nuevos:
+  nuevo-1 → muro-…» con un ID que nunca se usó, la sala pasa a 17.96 m² y aparece «Espacio sin
+  nombre 1» de 8.79 m², con un aviso `espacio_nuevo`.
+- **Borrar un vano**: borrar la caja de la puerta del baño. Al aplicar: «Borrados: vano-…»; las
+  áreas no cambian.
+- **Error de validación**: con `Move`, llevar la caja de una ventana del muro inferior encima de
+  la puerta de entrada (las dos en el mismo muro). «Lee los cambios» → «vano-…: desplazado …».
+  «Aplica el borrador» → «No se aplicó nada: con estos cambios el modelo tendría 1 error(es):
+  los vanos … y … se superponen en el muro …». `modelo.json` y `git log` no cambian. Deshacer
+  con Ctrl+Z.
+
 ## Proteger lo que no se leyó
 
 1. Con esas ediciones en Rhino, cambiar el modelo en core: «El muro muro-0001 mide en realidad

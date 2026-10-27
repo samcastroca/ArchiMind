@@ -1,6 +1,7 @@
 """Pruebas de integración del servidor MCP archimind-core: cada herramienta se llama en proceso,
 a través de un cliente MCP en memoria, como la llamaría Claude Desktop."""
 
+import hashlib
 import json
 import re
 import shutil
@@ -15,6 +16,7 @@ from archimind_core import area_table, recent_versions, server
 from archimind_core.server import MODEL_URI, mcp
 from archimind_schema import (
     BlocksDraft,
+    EditsDraft,
     Space,
     SpacePolygon,
     load_project,
@@ -43,6 +45,7 @@ TOOLS = {
     "comparar_versiones",
     "exportar_plano",
     "asignar_bloques",
+    "aplicar_borrador",
 }
 MAX_LINES = 50
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
@@ -121,7 +124,7 @@ async def _built(client: Client, tmp_path: Path, case: str, insunits: int | None
 async def test_tools_follow_the_server_rules(client: Client) -> None:
     tools = (await client.list_tools()).tools
     assert {tool.name for tool in tools} == TOOLS
-    assert len(tools) <= 12
+    assert len(tools) <= 13
     for tool in tools:
         assert re.fullmatch(r"[a-z]+(_[a-z]+)*", tool.name)
         assert "project_path" in tool.input_schema["required"]
@@ -354,7 +357,62 @@ async def test_errors_reach_the_model_with_a_clear_message(client: Client, tmp_p
     )
     assert "La versión 'zzz' no existe" in message and "Versiones recientes" in message
     assert "insertar_bloques_en_plano" in await fails(client, "asignar_bloques", project_path=path)
+    assert "leer_cambios de rhino-bridge" in await fails(
+        client, "aplicar_borrador", project_path=path
+    )
     assert _versions(folder) == before + 1  # solo el aplicar_mapeo que sí funcionó
+
+
+def _edits_draft(folder: Path, **changes: Any) -> Path:
+    """Un borrador de Rhino sobre la versión actual del modelo, como el de leer_cambios."""
+    text = (folder / "modelo.json").read_text(encoding="utf-8")
+    sha = hashlib.sha256(text.encode("utf-8")).hexdigest()
+    draft = EditsDraft.model_validate({"source": "rhino", "base_sha256": sha, **changes})
+    path = folder / "salidas" / "borrador_rhino.json"
+    path.write_text(draft.model_dump_json(), encoding="utf-8")
+    return path
+
+
+async def test_rhino_edits_are_applied_and_versioned(client: Client, tmp_path: Path) -> None:
+    folder = await _built(client, tmp_path, "apto_2hab")
+    path = str(folder)
+    await call(client, "confirmar_escala", project_path=path)
+    model = load_project(folder)
+    space = model.spaces[0]
+    before = _versions(folder)
+    _edits_draft(
+        folder,
+        spaces=[{"id": space.id, "polygon": space.polygon.model_dump(), "name": "Estudio"}],
+    )
+    applied = await call(client, "aplicar_borrador", project_path=path)
+    assert "Borrador de Rhino aplicado: 1 cambio." in applied
+    assert f"Renombrado: {space.id} «{space.name}» → «Estudio»." in applied
+    assert "cuadro_de_areas" in applied and "Versión " in applied
+    assert _versions(folder) == before + 1
+    assert recent_versions(folder)[0].message == "Aplica 1 cambio de Rhino"
+    assert load_project(folder).spaces[0].name == "Estudio"
+    assert (folder / "salidas" / "borrador_rhino.aplicado.json").is_file()
+    assert "ya se aplicó" in await fails(client, "aplicar_borrador", project_path=path)
+
+
+async def test_an_invalid_rhino_draft_changes_nothing(client: Client, tmp_path: Path) -> None:
+    folder = await _built(client, tmp_path, "apto_2hab")
+    path = str(folder)
+    model = load_project(folder)
+    a, b, *_ = next(  # dos vanos del mismo muro: uno se mueve encima del otro
+        group
+        for group in ([o for o in model.openings if o.wall_id == w.id] for w in model.walls)
+        if len(group) >= 2
+    )
+    edit = a.model_dump(include={"id", "width", "height", "sill_height"}) | {"offset": b.offset}
+    _edits_draft(folder, openings=[edit])
+    text = (folder / "modelo.json").read_text(encoding="utf-8")
+    before = _versions(folder)
+    message = await fails(client, "aplicar_borrador", project_path=path)
+    assert "No se aplicó nada" in message and "leer_cambios" in message
+    assert (folder / "modelo.json").read_text(encoding="utf-8") == text
+    assert _versions(folder) == before
+    assert (folder / "salidas" / "borrador_rhino.json").is_file()
 
 
 # --- Recurso y respuestas cortas ---------------------------------------------------------

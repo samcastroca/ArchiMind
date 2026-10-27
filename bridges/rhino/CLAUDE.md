@@ -18,4 +18,4 @@ Dos mitades que hablan por HTTP local: `plugin/archimind_bridge.py` corre dentro
 - Una entidad en Rhino se identifica por el user string `archimind_id`, no por su capa. El .3dm
   guarda el `modelo.json` con el que se cargó: los cambios se leen contra esa base.
 - El puente nunca escribe `modelo.json`: entrega `salidas/borrador_rhino.json` (`EditsDraft` de
-  schema), que aplicará core.
+  schema), que core aplica con `aplicar_borrador` y renombra a `borrador_rhino.aplicado.json`.

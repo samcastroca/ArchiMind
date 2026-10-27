@@ -24,6 +24,8 @@ from archimind_core.blocks import DRAFT_PATH, BlocksError, apply_block_draft
 from archimind_core.build_rules import BuildRulesError
 from archimind_core.compare import compare_versions
 from archimind_core.drawing import DrawingError
+from archimind_core.edits import DRAFT_PATH as EDITS_DRAFT_PATH
+from archimind_core.edits import EditsError, apply_edits_draft
 from archimind_core.errors import BuildStageError
 from archimind_core.export_dwg import DwgVersion, export_dwg
 from archimind_core.export_dxf import ExportError, export_dxf
@@ -55,6 +57,8 @@ revisada) → confirmar_escala → consultas (listar_espacios, listar_vanos, cua
 validar_modelo), exportar_plano (png, dxf o dwg) y comparar_versiones.
 La carpintería la propone archimind-bloques (insertar_bloques_en_plano) en un borrador; se guarda
 en el modelo con asignar_bloques.
+Lo editado en Rhino lo lee rhino-bridge (leer_cambios) en un borrador; se guarda en el modelo con
+aplicar_borrador, que recalcula los espacios si cambiaron los muros.
 Las áreas, longitudes y cantidades salen siempre de estas herramientas; no las calcules ni las
 estimes. Si la escala no está confirmada, toda cantidad es PRELIMINAR y hay que decirlo."""
 
@@ -71,6 +75,7 @@ USER_ERRORS = (
     BlocksError,
     BuildRulesError,
     DrawingError,
+    EditsError,
     ExportError,
     HistoryError,
     LayerRulesError,
@@ -399,6 +404,33 @@ def asignar_bloques(
     result = apply_block_draft(folder, borrador)
     version = commit(folder, f"Asigna bloques a {summaries.count(len(result.assigned), 'vano')}")
     return summaries.blocks_assigned(result, version)
+
+
+@_tool(WRITES_MODEL)
+def aplicar_borrador(
+    project_path: ProjectPath,
+    borrador: Annotated[
+        str,
+        Field(
+            description=(
+                "Ruta del borrador que escribió leer_cambios de rhino-bridge; si es relativa, "
+                "desde la carpeta del proyecto."
+            )
+        ),
+    ] = EDITS_DRAFT_PATH,
+) -> str:
+    """Guarda en el modelo lo editado en Rhino: muros movidos o con otro espesor o alto, vanos
+    desplazados o redimensionados, espacios con otro contorno o renombrados, lo borrado y lo
+    nuevo (le pone IDs inéditos). Si cambiaron muros, recalcula los espacios desde los muros,
+    conservando sus IDs y nombres. Valida el resultado: si el modelo cambió desde la lectura o
+    quedaría con errores, no aplica nada y los explica. Úsala después de leer_cambios
+    (rhino-bridge), normalmente sin borrador (por defecto salidas/borrador_rhino.json). Devuelve
+    los cambios, las áreas que variaron y la versión."""
+    folder, _ = _use(project_path)
+    before, draft, result = apply_edits_draft(folder, borrador)
+    message = summaries.edits_commit_message(draft)
+    version = commit(folder, message)
+    return summaries.edits_applied(before, draft, result, version)
 
 
 @mcp.resource(

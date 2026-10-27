@@ -15,7 +15,7 @@ import pytest
 from archimind_core import server as core_server
 from archimind_rhino_bridge import server as rhino_server
 from archimind_rhino_bridge.client import CONFIG_ENV, NOT_RUNNING
-from archimind_schema import EditsDraft
+from archimind_schema import EditsDraft, load_project
 from fake_rhino import FakeDocument
 from golden import GOLDEN_DIR
 from mcp import Client, StdioServerParameters
@@ -232,3 +232,41 @@ async def test_a_running_command_is_reported(
     assert "ejecutando un comando" in await fails(
         client, "abrir_en_rhino", project_path=str(folder)
     )
+
+
+async def test_edit_cycle_moves_a_wall_and_updates_the_areas(
+    client: Client, core: Client, tmp_path: Path, rhino: FakeDocument
+) -> None:
+    """El ciclo de PRUEBA_MANUAL.md: mover 20 cm el tabique entre las habitaciones de
+    apto_2hab, leer los cambios, aplicarlos y ver el cuadro de áreas nuevo."""
+    folder = await _project(core, tmp_path)
+    path = str(folder)
+    areas = await call(core, "cuadro_de_areas", project_path=path)
+    assert "Habitación 1 (útil): 9.19 m²" in areas and "Habitación 2 (útil): 11.52 m²" in areas
+    useful = re.search(r"Área útil: ([\d.]+) m²", areas)
+    assert useful is not None
+
+    await call(client, "abrir_en_rhino", project_path=path)
+    model = load_project(folder)
+    (partition,) = [
+        w for w in model.walls if {round(p[1], 3) for p in w.axis} == {3.6} and w.thickness < 0.15
+    ]
+    rhino.move(partition.id, 0, 0.2)
+    read = await call(client, "leer_cambios", project_path=path)
+    assert f"- {partition.id}: movido 0.20 m" in read
+
+    applied = await call(core, "aplicar_borrador", project_path=path)
+    assert "Borrador de Rhino aplicado: 1 cambio." in applied
+    assert "Habitación 1: 9.19 → 8.52 m²" in applied
+    assert "Habitación 2: 11.52 → 12.19 m²" in applied
+
+    areas = await call(core, "cuadro_de_areas", project_path=path)
+    assert "Habitación 1 (útil): 8.52 m²" in areas and "Habitación 2 (útil): 12.19 m²" in areas
+    assert f"Área útil: {useful.group(1)} m²" in areas
+
+    # Lo aplicado no cuenta como cambio pendiente: Rhino recarga sin pedir descartar.
+    again = await call(client, "leer_cambios", project_path=path)
+    assert "ya se aplicaron al modelo" in again
+    reloaded = await call(client, "abrir_en_rhino", project_path=path)
+    assert "ya estaban aplicadas en el modelo" in reloaded and "descartaron" not in reloaded
+    assert "Sin cambios" in await call(client, "leer_cambios", project_path=path)

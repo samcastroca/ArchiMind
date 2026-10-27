@@ -279,7 +279,8 @@ confirmar_escala → consultas, vista y exportación. Carpintería: exportar_pla
 ajustar_bloque_a_vano → insertar_bloques_en_plano → asignar_bloques. Para probarlo hay 20
 pedidos de ejemplo en `tests/pedidos_bloques.yaml`, con la llamada y el resultado esperados, y
 los pasos en `packages/bloques/PRUEBA_MANUAL.md`. Rhino: con el puente iniciado en Rhino 8,
-abrir_en_rhino → editar en Rhino → leer_cambios → guardar_3dm; los pasos, en
+abrir_en_rhino → editar en Rhino → leer_cambios → aplicar_borrador (core) → cuadro_de_areas →
+abrir_en_rhino para seguir editando; los pasos, en
 `bridges/rhino/PRUEBA_MANUAL.md`.
 
 ## Estado
@@ -336,7 +337,7 @@ la misma capa de muros; se reconstruye con `vista=1`). El modelo esperado está 
   por git).
 
 **Servidor MCP `archimind-core`** (`archimind_core/server.py`, con el SDK oficial `mcp` 2.x y
-`MCPServer`). Son 12 herramientas, todas con `project_path`, que responden con un resumen de
+`MCPServer`). Son 13 herramientas, todas con `project_path`, que responden con un resumen de
 menos de 50 líneas y rutas de archivo. Las que modifican el modelo hacen un commit en el
 repositorio del proyecto y responden con el hash de la versión:
 
@@ -359,6 +360,11 @@ repositorio del proyecto y responden con el hash de la versión:
   `ARCHIMIND_REMOTO=1`, el DWG queda deshabilitado con un mensaje que ofrece el DXF.
 - `asignar_bloques(borrador="salidas/borrador_bloques.json")`: guarda en el modelo la
   carpintería que propuso `archimind-bloques`.
+- `aplicar_borrador(borrador="salidas/borrador_rhino.json")`: guarda en el modelo lo editado en
+  Rhino (el `EditsDraft` de `leer_cambios`) y lo renombra a `borrador_rhino.aplicado.json`.
+  Responde con lo editado, lo nuevo (`ref` → ID), los renombrados, los espacios cuya área cambió
+  (antes → después), los avisos nuevos y la versión. Si el modelo cambió desde la lectura o
+  quedaría con errores de `validate`, no aplica nada y los explica.
 
 El recurso `archimind://proyecto/modelo` resume el último proyecto abierto o usado en la sesión:
 plano activo, escala, conteos, áreas, validación y últimas versiones. Toda excepción llega al
@@ -399,6 +405,17 @@ La lógica de `core`:
 - **Historial** con git: `commit(carpeta, mensaje)` versiona `modelo.json`, `planos/` y
   `.gitignore` firmando como ArchiMind y devuelve el hash corto, o `None` si no cambió nada.
   `recent_versions(carpeta)` y `load_version(carpeta, "HEAD~1")` leen las versiones anteriores.
+- **`apply_edits(project, draft)`** aplica un `EditsDraft` sobre una copia: valores nuevos de
+  muros, vanos y espacios, borrados (los vanos de un muro borrado también), IDs inéditos para lo
+  nuevo y los bloques sin uso retirados; valida y, con algún error, lanza `EditsError` sin
+  cambiar nada. `apply_edits_draft(project_path, ruta)` además rechaza el borrador si el SHA-256
+  de `modelo.json` no es su `base_sha256`, guarda y lo marca como aplicado.
+- **`recompute_spaces(project, rules, edited)`**: si el borrador cambia muros, los espacios se
+  recalculan desde ellos (huellas con las esquinas en L rellenas y los vanos tapados, como al
+  importar). Cada cara hereda ID, nombre y categoría del espacio con el que comparte más área
+  (al menos la mitad de la menor de las dos) y conserva su contorno si no cambió; las caras sin
+  espacio son «Espacio sin nombre N» y los espacios sin cara se quitan, con un aviso que dice si
+  se unieron a otro.
 - **`apply_mapping(project_path, drawing, mapping)`** valida los roles y las capas, reconstruye
   el modelo del proyecto con `build_model` y lo guarda; si el mapeo no es válido, no escribe
   nada. La reconstrucción conserva el nombre, las fuentes y los contadores de IDs: los muros,
@@ -605,7 +622,6 @@ descripciones explican el esquema con un ejemplo («ventana corrediza de alumini
   `bridges/rhino/PRUEBA_MANUAL.md`.
 
 Siguen pendientes:
-- que core aplique el borrador de Rhino (`EditsDraft`);
 - los muros curvos y varios niveles por plano;
 - `docs` y `vision`;
 - los puentes con AutoCAD e Illustrator.

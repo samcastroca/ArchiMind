@@ -36,7 +36,7 @@ no comercial.
 - Las respuestas son resúmenes y rutas de archivo; las coordenadas se quedan en los archivos.
 - Errores con mensajes claros para el usuario final (p. ej., "Rhino no está abierto"), lanzados
   como `ToolError`: es la única excepción cuyo mensaje el SDK hace llegar al cliente.
-- Máximo 12 herramientas por servidor. La lógica vive en el paquete; la herramienta es una
+- Máximo 13 herramientas por servidor. La lógica vive en el paquete; la herramienta es una
   envoltura delgada.
 
 ## Pruebas
