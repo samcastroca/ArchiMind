@@ -10,6 +10,7 @@ dependencies = [
     "archimind-bloques",
     "archimind-docs",
     "archimind-vision",
+    "archimind-rhino-bridge",
 ]
 
 [dependency-groups]
@@ -23,7 +24,7 @@ dev = [
 ]
 
 [tool.uv.workspace]
-members = ["packages/*"]
+members = ["packages/*", "bridges/rhino/mcp"]
 
 [tool.uv.sources]
 archimind-schema = { workspace = true }
@@ -31,15 +32,26 @@ archimind-core = { workspace = true }
 archimind-bloques = { workspace = true }
 archimind-docs = { workspace = true }
 archimind-vision = { workspace = true }
+archimind-rhino-bridge = { workspace = true }
 
 [tool.pytest.ini_options]
-testpaths = ["packages", "tests"]
+testpaths = ["packages", "bridges", "tests"]
 addopts = "--import-mode=importlib"
-pythonpath = ["packages/schema/tests", "packages/bloques/tests", "tests/fixtures"]
+pythonpath = [
+    "packages/schema/tests",
+    "packages/bloques/tests",
+    "bridges/rhino/plugin",
+    "bridges/rhino/mcp/tests",
+    "tests/fixtures",
+]
 
 [tool.ruff]
 target-version = "py311"
 line-length = 100
+
+# El script del puente corre dentro de Rhino 8, que trae CPython 3.9.
+[tool.ruff.per-file-target-version]
+"bridges/rhino/plugin/**/*.py" = "py39"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
@@ -62,3 +74,9 @@ implicit_reexport = true
 [[tool.mypy.overrides]]
 module = ["ezdxf.addons.odafc"]
 follow_imports = "skip"
+
+# El script del puente usa RhinoCommon, sin tipos fuera de Rhino: las pruebas lo ven como Any.
+[[tool.mypy.overrides]]
+module = ["archimind_bridge"]
+follow_imports = "skip"
+ignore_missing_imports = true

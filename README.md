@@ -147,8 +147,8 @@ en la misma ruta, no hay que cambiar la configuración.
 ## Uso desde Claude Desktop
 
 Referencia técnica de la configuración; la guía de arriba cubre el caso habitual. Hace falta [uv](https://docs.astral.sh/uv/) y [git](https://git-scm.com/downloads) instalados.
-Hay dos servidores: `archimind-core` (planos y modelo) y `archimind-bloques` (carpintería). Se
-declaran en `claude_desktop_config.json`. Para abrirlo, en Claude Desktop:
+Hay tres servidores: `archimind-core` (planos y modelo), `archimind-bloques` (carpintería) y
+`rhino-bridge` (el modelo en Rhino 8, ver [bridges/rhino](bridges/rhino/README.md)). Se declaran en `claude_desktop_config.json`. Para abrirlo, en Claude Desktop:
 **Configuración → Desarrollador → Editar configuración**. Así se abre (o se crea) el archivo
 que la app lee de verdad: si Claude Desktop se instaló desde Microsoft Store, Windows redirige
 su carpeta y el archivo no está en `%APPDATA%\Claude\`.
@@ -182,6 +182,18 @@ repositorio, con las barras invertidas dobles:
         "archimind-bloques"
       ],
       "env": { "PYTHONUTF8": "1" }
+    },
+    "rhino-bridge": {
+      "command": "uv",
+      "args": [
+        "run",
+        "--directory",
+        "C:\\RUTA\\ABSOLUTA\\A\\ArchiMind",
+        "--package",
+        "archimind-rhino-bridge",
+        "archimind-rhino-bridge"
+      ],
+      "env": { "PYTHONUTF8": "1" }
     }
   }
 }
@@ -192,8 +204,8 @@ Dónde va en el archivo:
 - **Archivo vacío o recién creado**: se pega el bloque completo.
 - **Archivo con contenido y sin `mcpServers`**: `mcpServers` se añade como una clave más del
   objeto de primer nivel, junto a las que ya hay (p. ej. `preferences`), separada por una coma.
-- **Archivo que ya tiene `mcpServers`**: solo se añaden las entradas `"archimind-core": {…}` y
-  `"archimind-bloques": {…}` dentro de ese objeto, separadas por comas de los otros servidores. El archivo debe tener una sola
+- **Archivo que ya tiene `mcpServers`**: solo se añaden las entradas `"archimind-core": {…}`,
+  `"archimind-bloques": {…}` y `"rhino-bridge": {…}` dentro de ese objeto, separadas por comas de los otros servidores. El archivo debe tener una sola
   clave `mcpServers`.
 
 El resultado tiene esta forma, donde los `…` son lo que ya hubiera en el archivo:
@@ -204,13 +216,14 @@ El resultado tiene esta forma, donde los `…` son lo que ya hubiera en el archi
   "mcpServers": {
     "otro-servidor": { … },
     "archimind-core": { "command": …, "args": […], "env": { … } },
-    "archimind-bloques": { "command": …, "args": […], "env": { … } }
+    "archimind-bloques": { "command": …, "args": […], "env": { … } },
+    "rhino-bridge": { "command": …, "args": […], "env": { … } }
   }
 }
 ```
 
 Después se guarda y se cierra Claude Desktop del todo (también desde la bandeja del sistema)
-antes de volver a abrirlo. En **Configuración → Desarrollador**, los dos servidores deben
+antes de volver a abrirlo. En **Configuración → Desarrollador**, los servidores deben
 aparecer en marcha; ahí mismo está el botón para abrir la carpeta de registros
 (`mcp-server-archimind-core.log`, `mcp-server-archimind-bloques.log`). Si no encuentra `uv`, en
 `command` va su ruta completa (`where uv` en Windows, `which uv` en macOS). Para probar un
@@ -265,13 +278,15 @@ Flujo de trabajo: abrir_proyecto → importar_plano → proponer_mapeo_capas →
 confirmar_escala → consultas, vista y exportación. Carpintería: exportar_plano (dxf) →
 ajustar_bloque_a_vano → insertar_bloques_en_plano → asignar_bloques. Para probarlo hay 20
 pedidos de ejemplo en `tests/pedidos_bloques.yaml`, con la llamada y el resultado esperados, y
-los pasos en `packages/bloques/PRUEBA_MANUAL.md`.
+los pasos en `packages/bloques/PRUEBA_MANUAL.md`. Rhino: con el puente iniciado en Rhino 8,
+abrir_en_rhino → editar en Rhino → leer_cambios → guardar_3dm; los pasos, en
+`bridges/rhino/PRUEBA_MANUAL.md`.
 
 ## Estado
 
 Está implementado `packages/schema`, el contrato del que dependen los demás paquetes; en
-`packages/core` la importación de planos con su servidor MCP, y en `packages/bloques` la
-carpintería paramétrica con el suyo. `schema`:
+`packages/core` la importación de planos con su servidor MCP; en `packages/bloques` la
+carpintería paramétrica con el suyo, y en `bridges/rhino` el puente con Rhino 8. `schema`:
 
 - **Modelo semántico** (Pydantic v2): proyecto, niveles, muros, vanos, espacios, bloques y
   anotaciones, en metros. Pydantic comprueba la forma y los tipos.
@@ -533,7 +548,42 @@ descripciones explican el esquema con un ejemplo («ventana corrediza de alumini
   PNG, el DXF, el SVG y el .3dm de cada tipo en `tests/output/bloques/`.
   `packages/bloques/PRUEBA_MANUAL.md` explica cómo revisarlos en Rhino y AutoCAD.
 
+**Puente con Rhino 8** (`bridges/rhino`):
+
+- `plugin/archimind_bridge.py`, un script de Python 3.9 para el editor de scripts de Rhino 8, solo
+  con la biblioteca estándar y RhinoCommon. Arranca un servidor HTTP en `127.0.0.1` en un hilo
+  secundario, con el puerto y un token compartido en `~/.archimind/rhino_bridge.json` (lo crea la
+  primera vez; la variable `ARCHIMIND_RHINO_BRIDGE` da otra ruta). Cinco operaciones fijas
+  (`ping`, `open_file`, `load_model_layers`, `read_tagged_objects`, `save_as`), sin ejecutar
+  código; cada una corre en el hilo de la interfaz con `RhinoApp.InvokeOnUiThread` y se niega si
+  Rhino está en medio de un comando. Las coordenadas viajan en metros y se convierten a las
+  unidades del documento. Volver a ejecutar el script lo reinicia.
+- En Rhino, el modelo va en `ArchiMind::Muros` (cada muro, su huella extruida con su altura),
+  `ArchiMind::Vanos` (una caja en cada hueco, sin restarla del muro) y `ArchiMind::Espacios`
+  (superficies a la cota del nivel). Cada objeto lleva su ID en el user string `archimind_id`, y
+  el documento guarda el `modelo.json` con el que se cargó.
+- **Servidor MCP `rhino-bridge`** (paquete `archimind-rhino-bridge` en `bridges/rhino/mcp`), con 4
+  herramientas que reciben `project_path`. Si el puente no responde: «Rhino no está abierto o el
+  puente no está iniciado; ejecuta <ruta del script> desde el editor de scripts».
+  - `estado_rhino`: Rhino, el documento, si es del proyecto y si el modelo cambió desde la carga.
+  - `abrir_en_rhino(descartar_cambios=False)`: abre `salidas/<proyecto>.3dm` (lo crea en metros
+    con rhino3dm si no existe). Si el modelo no cambió desde la última carga, conserva lo editado;
+    si cambió, recarga las capas ArchiMind y guarda. Si hay ediciones sin leer y el modelo
+    cambió, se niega salvo `descartar_cambios=True`. Nunca abre encima de un documento con
+    cambios sin guardar.
+  - `leer_cambios`: compara Rhino con el modelo cargado (no con el actual) y escribe
+    `salidas/borrador_rhino.json` (`EditsDraft`): muros rectos movidos, girados, estirados o con
+    otro espesor o alto (de la huella rectangular), vanos desplazados o con otra medida en su
+    muro, espacios con otro contorno y lo borrado (con un muro, sus vanos). Avisa de los objetos
+    sin `archimind_id`, las copias, los sólidos que ya no son prismas rectangulares y los muros
+    de varios tramos; nada de eso entra.
+  - `guardar_3dm`: guarda el documento del proyecto en `salidas/<proyecto>.3dm`.
+- Las pruebas usan un documento de Rhino falso (`bridges/rhino/mcp/tests/fake_rhino.py`) detrás
+  del servidor HTTP real del script; lo que depende de RhinoCommon está en
+  `bridges/rhino/PRUEBA_MANUAL.md`.
+
 Siguen pendientes:
+- que core aplique el borrador de Rhino (`EditsDraft`);
 - los muros curvos y varios niveles por plano;
 - `docs` y `vision`;
-- los puentes con Rhino, AutoCAD e Illustrator.
+- los puentes con AutoCAD e Illustrator.

@@ -49,9 +49,10 @@ no comercial.
 - `uv sync` — instala el workspace completo.
 - `uv run pytest` — todas las pruebas.
 - `uv run --package <nombre> pytest` — pruebas de un paquete (p. ej. `archimind-core`).
-- `uv run ruff check . && uv run mypy packages` — lint y tipos.
+- `uv run ruff check . && uv run mypy packages bridges/rhino/mcp` — lint y tipos.
 - `uv run --package archimind-core archimind-core` — arranca el servidor de core por stdio (el
-  paquete se llama `archimind-core`, no `core`).
+  paquete se llama `archimind-core`, no `core`). El puente con Rhino:
+  `uv run --package archimind-rhino-bridge archimind-rhino-bridge`.
 
 ## Forma de trabajo
 - Plan antes de cambios grandes. Cambios pequeños, un commit por tarea.

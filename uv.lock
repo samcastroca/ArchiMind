@@ -14,6 +14,7 @@ members = [
     "archimind-bloques",
     "archimind-core",
     "archimind-docs",
+    "archimind-rhino-bridge",
     "archimind-schema",
     "archimind-vision",
 ]
@@ -48,6 +49,7 @@ dependencies = [
     { name = "archimind-bloques" },
     { name = "archimind-core" },
     { name = "archimind-docs" },
+    { name = "archimind-rhino-bridge" },
     { name = "archimind-schema" },
     { name = "archimind-vision" },
 ]
@@ -67,6 +69,7 @@ requires-dist = [
     { name = "archimind-bloques", editable = "packages/bloques" },
     { name = "archimind-core", editable = "packages/core" },
     { name = "archimind-docs", editable = "packages/docs" },
+    { name = "archimind-rhino-bridge", editable = "bridges/rhino/mcp" },
     { name = "archimind-schema", editable = "packages/schema" },
     { name = "archimind-vision", editable = "packages/vision" },
 ]
@@ -143,6 +146,27 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [{ name = "archimind-schema", editable = "packages/schema" }]
+
+[[package]]
+name = "archimind-rhino-bridge"
+version = "0.1.0"
+source = { editable = "bridges/rhino/mcp" }
+dependencies = [
+    { name = "archimind-schema" },
+    { name = "mcp" },
+    { name = "pydantic" },
+    { name = "rhino3dm" },
+    { name = "shapely" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "archimind-schema", editable = "packages/schema" },
+    { name = "mcp", specifier = ">=2.3" },
+    { name = "pydantic", specifier = ">=2" },
+    { name = "rhino3dm", specifier = ">=8.35.0" },
+    { name = "shapely", specifier = ">=2.1" },
+]
 
 [[package]]
 name = "archimind-schema"
