@@ -80,6 +80,50 @@ aparecer en marcha; ahí mismo está el botón para abrir la carpeta de registro
 servidor sin Claude Desktop: `uv run --package archimind-core archimind-core` (o
 `archimind-bloques`) arranca y espera mensajes por stdio.
 
+### DWG: ODA File Converter (opcional)
+
+Solo hace falta para **importar un DWG** (`importar_plano`) y **exportar en DWG**
+(`exportar_plano(formato="dwg")`); DXF y PNG funcionan sin él. ArchiMind no lo llama
+directamente: usa el complemento `odafc` de ezdxf, que ejecuta el programa en el equipo donde
+corre `archimind-core`. Sin él, las herramientas responden con un mensaje que ofrece el DXF.
+
+1. **Instalarlo**: descargar el instalador gratuito de Windows desde
+   <https://www.opendesign.com/guestfiles/oda_file_converter> (pide aceptar la licencia) y
+   ejecutarlo con las opciones por defecto.
+2. **Buscar el ejecutable**: el instalador lo deja en una carpeta con la versión en el nombre,
+   p. ej. `C:\Program Files\ODA\ODAFileConverter 25.12.0\ODAFileConverter.exe`, mientras que
+   ezdxf lo busca por defecto en `C:\Program Files\ODA\ODAFileConverter\ODAFileConverter.exe`.
+   En Windows ezdxf solo mira esa ruta configurada (no el `PATH`), así que casi siempre hay que
+   indicársela.
+3. **Configurar ezdxf**: crear el archivo `%USERPROFILE%\.config\ezdxf\ezdxf.ini` (p. ej.
+   `C:\Users\<usuario>\.config\ezdxf\ezdxf.ini`; la carpeta `.config\ezdxf` se crea a mano si no
+   existe) con la ruta real del paso 2:
+
+   ```ini
+   [odafc-addon]
+   win_exec_path = "C:\Program Files\ODA\ODAFileConverter 25.12.0\ODAFileConverter.exe"
+   ```
+
+   Las barras van simples (no es JSON) y las comillas son opcionales. Este archivo vale para el
+   servidor y para las pruebas. Si se prefiere otro sitio, se puede apuntar a él con la variable
+   de entorno `EZDXF_CONFIG_FILE`, por ejemplo dentro de `"env"` en `claude_desktop_config.json`.
+4. **Comprobarlo** desde la carpeta del repositorio:
+
+   ```
+   uv run python -c "from ezdxf.addons import odafc; print(odafc.get_win_exec_path(), odafc.is_installed())"
+   ```
+
+   Debe imprimir la ruta del paso 2 seguida de `True`. Con `uv run ezdxf config -p` se ve la
+   configuración completa que ezdxf cargó. La prueba
+   `uv run --package archimind-core pytest packages/core/tests/test_export_dwg.py -rs` deja de
+   aparecer como `SKIPPED`.
+5. **Reiniciar Claude Desktop** del todo: el servidor lee la configuración al arrancar.
+
+Al actualizar ODA File Converter cambia el número de versión de la carpeta: hay que corregir
+`win_exec_path`. En macOS y Linux, ezdxf busca `ODAFileConverter` en el `PATH`, o la ruta de
+`unix_exec_path` en la misma sección (útil para el AppImage). Con `ARCHIMIND_REMOTO=1` el DWG
+queda deshabilitado aunque ODA esté instalado.
+
 Flujo de trabajo: abrir_proyecto → importar_plano → proponer_mapeo_capas → aplicar_mapeo →
 confirmar_escala → consultas, vista y exportación. Carpintería: exportar_plano (dxf) →
 ajustar_bloque_a_vano → insertar_bloques_en_plano → asignar_bloques. Para probarlo hay 20
