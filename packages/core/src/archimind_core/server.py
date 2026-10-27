@@ -6,6 +6,7 @@ repositorio del proyecto. Se ejecuta con `uv run --package archimind-core archim
 """
 
 import functools
+import os
 from collections.abc import Callable
 from pathlib import Path
 from typing import Annotated, Literal, ParamSpec
@@ -21,6 +22,7 @@ from archimind_core.blocks import DRAFT_PATH, BlocksError, apply_block_draft
 from archimind_core.build_rules import BuildRulesError
 from archimind_core.compare import compare_versions
 from archimind_core.drawing import DrawingError
+from archimind_core.export_dwg import DwgVersion, export_dwg
 from archimind_core.export_dxf import ExportError, export_dxf
 from archimind_core.history import HistoryError, commit, load_version
 from archimind_core.inventory import layer_inventory
@@ -46,13 +48,15 @@ ArchiMind convierte planos arquitectónicos DXF/DWG en un modelo semántico (mur
 espacios) guardado en la carpeta de cada proyecto y versionado con git.
 Flujo: abrir_proyecto → importar_plano → proponer_mapeo_capas → aplicar_mapeo (con la propuesta
 revisada) → confirmar_escala → consultas (listar_espacios, listar_vanos, cuadro_de_areas,
-validar_modelo), exportar_plano (png o dxf) y comparar_versiones.
+validar_modelo), exportar_plano (png, dxf o dwg) y comparar_versiones.
 La carpintería la propone archimind-bloques (insertar_bloques_en_plano) en un borrador; se guarda
 en el modelo con asignar_bloques.
 Las áreas, longitudes y cantidades salen siempre de estas herramientas; no las calcules ni las
 estimes. Si la escala no está confirmada, toda cantidad es PRELIMINAR y hay que decirlo."""
 
 MODEL_URI = "archimind://proyecto/modelo"
+# Con "1", el servidor corre en remoto: no está en el equipo del usuario y no exporta DWG.
+REMOTE_ENV = "ARCHIMIND_REMOTO"
 READS = ToolAnnotations(read_only_hint=True, open_world_hint=False)
 WRITES_MODEL = ToolAnnotations(read_only_hint=False, destructive_hint=False, open_world_hint=False)
 WRITES_OUTPUT = ToolAnnotations(
@@ -288,21 +292,52 @@ def comparar_versiones(
 def exportar_plano(
     project_path: ProjectPath,
     formato: Annotated[
-        Literal["png", "dxf"],
-        Field(description='"png" para mirar la planta, "dxf" para llevarla a un programa de CAD.'),
-    ],
+        Literal["png", "dxf", "dwg"],
+        Field(
+            description=(
+                '"png" para mirar la planta, "dxf" para llevarla a un programa de CAD, "dwg" solo '
+                "si el usuario lo pide."
+            )
+        ),
+    ] = "dxf",
+    version_dwg: Annotated[
+        DwgVersion,
+        Field(
+            description=(
+                'Solo con formato="dwg": "R2018" para AutoCAD 2018 o posterior, "R2013" para '
+                "AutoCAD 2013 a 2017."
+            )
+        ),
+    ] = "R2018",
 ) -> str:
     """Dibuja la planta del modelo en salidas/. Con formato="png", salidas/vista.png: espacios
     con nombre y área, muros y vanos, para revisar a ojo el modelo reconstruido. Con
-    formato="dxf", salidas/<proyecto>.dxf: un DXF limpio en metros con los muros con los vanos
-    recortados, puertas, ventanas, espacios, sus nombres y sus áreas, cada uno en su capa; necesita
-    la escala confirmada, y es el plano sobre el que archimind-bloques inserta la carpintería.
+    formato="dxf" (por defecto), salidas/<proyecto>.dxf: un DXF limpio en metros con los muros
+    con los vanos recortados, puertas, ventanas, espacios, sus nombres y sus áreas, cada uno en
+    su capa. Ofrécelo para llevar el plano a cualquier CAD (AutoCAD, BricsCAD, Rhino, LibreCAD…);
+    es además el plano sobre el que archimind-bloques inserta la carpintería. Con formato="dwg",
+    salidas/<proyecto>.dwg, el mismo dibujo, con el DXF al lado: úsalo solo si el usuario pide
+    DWG o lo entrega a alguien que trabaja en AutoCAD, con version_dwg="R2013" si usa AutoCAD
+    2013 a 2017. El DWG necesita ODA File Converter en el equipo del servidor y no está
+    disponible en modo remoto; si falla, ofrece el DXF. DXF y DWG necesitan la escala confirmada.
     Devuelve la ruta del archivo."""
     folder, project = _use(project_path)
     if formato == "png":
         path = render_model(project, outputs_dir(folder) / "vista.png")
         note = "" if project.scale_confirmed else " (escala sin confirmar: áreas preliminares)"
         return f"Vista guardada en {path}{note}."
+    if formato == "dwg":
+        if os.environ.get(REMOTE_ENV) == "1":
+            raise ExportError(
+                "El formato DWG no está disponible en modo remoto: la conversión necesita ODA File "
+                'Converter instalado en el equipo del servidor. Exporta con formato="dxf": '
+                "AutoCAD lo abre igual y desde ahí se puede guardar como DWG."
+            )
+        path = export_dwg(project, outputs_dir(folder) / f"{folder.name}.dwg", version_dwg)
+        return (
+            f"DWG {version_dwg} exportado en {path}, con el DXF al lado en "
+            f"{path.with_suffix('.dxf')} (metros; capas A-MURO, A-PUERTA, A-VENTANA, A-ESPACIO…)."
+        )
     path = export_dxf(project, outputs_dir(folder) / f"{folder.name}.dxf")
     return f"DXF exportado en {path} (metros; capas A-MURO, A-PUERTA, A-VENTANA, A-ESPACIO…)."
 

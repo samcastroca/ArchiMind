@@ -11,6 +11,10 @@ from ezdxf.document import Drawing as DXFDocument
 from archimind_core.units import DrawingUnits, detect_units
 
 ODA_URL = "https://www.opendesign.com/guestfiles/oda_file_converter"
+ODA_INSTALL_HELP = (
+    f"instalarlo gratis desde {ODA_URL}; si no queda en la ruta por defecto, indicarla en "
+    "'win_exec_path' de la sección [odafc-addon] de la configuración de ezdxf"
+)
 
 
 class DrawingError(Exception):
@@ -54,10 +58,8 @@ def _read_dwg(source: Path) -> DXFDocument:
     if not odafc.is_installed():
         raise DrawingError(
             f"{source.name} es un DWG y para leerlo hace falta ODA File Converter, que no está "
-            f"instalado. Opciones: (1) instalarlo gratis desde {ODA_URL}; si no queda en la ruta "
-            "por defecto, indicarla en 'win_exec_path' de la sección [odafc-addon] de la "
-            "configuración de ezdxf; o (2) exportar el plano a DXF desde AutoCAD u otro CAD "
-            "(Guardar como → DXF) e importar ese archivo."
+            f"instalado. Opciones: (1) {ODA_INSTALL_HELP}; o (2) exportar el plano a DXF desde "
+            "AutoCAD u otro CAD (Guardar como → DXF) e importar ese archivo."
         )
     try:
         doc: DXFDocument = odafc.readfile(source)

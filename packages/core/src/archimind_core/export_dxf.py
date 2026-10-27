@@ -38,13 +38,18 @@ class ExportError(Exception):
     """El modelo no se puede exportar; el mensaje está pensado para el usuario final."""
 
 
-def export_dxf(project: Project, path: str | Path) -> Path:
-    """Escribe el modelo en un DXF R2010 en metros. Se niega si la escala no está confirmada."""
+def require_confirmed_scale(project: Project) -> None:
+    """Un plano exportado lleva medidas definitivas: sin la escala confirmada, no se exporta."""
     if not project.scale_confirmed:
         raise ExportError(
             f"{PRELIMINARY_LABEL}: confirma la escala con confirmar_escala antes de exportar el "
-            "DXF."
+            "plano."
         )
+
+
+def export_dxf(project: Project, path: str | Path) -> Path:
+    """Escribe el modelo en un DXF R2010 en metros. Se niega si la escala no está confirmada."""
+    require_confirmed_scale(project)
     doc = ezdxf.new("R2010", setup=True, units=units.M)
     for name, color in LAYER_COLORS.items():
         doc.layers.add(name, color=color)

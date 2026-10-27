@@ -23,6 +23,7 @@ from archimind_schema import (
     validate,
     wall_length,
 )
+from ezdxf.addons import odafc
 from golden import GOLDEN_DIR, load_expected
 from mcp import Client, StdioServerParameters
 from mcp.types import TextContent, TextResourceContents
@@ -237,6 +238,35 @@ async def test_inferred_units_stay_preliminary_until_confirmed(
     assert load_project(folder).scale_confirmed
     assert "CSV: " in await call(client, "cuadro_de_areas", project_path=path)
     assert recent_versions(folder)[0].message == "Confirma la escala con las unidades del plano"
+
+
+async def test_dwg_needs_oda_and_a_local_server(
+    client: Client, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    folder = await _built(client, tmp_path, "apto_2hab")
+    path = str(folder)
+    outputs = folder / "salidas"
+
+    monkeypatch.setattr(odafc, "is_installed", lambda: False)
+    missing = await fails(client, "exportar_plano", project_path=path, formato="dwg")
+    assert "ODA File Converter" in missing and 'formato="dxf"' in missing
+    monkeypatch.setenv(server.REMOTE_ENV, "1")
+    remote = await fails(client, "exportar_plano", project_path=path, formato="dwg")
+    assert "modo remoto" in remote and 'formato="dxf"' in remote
+    assert not list(outputs.glob("casa.*"))
+    assert str(outputs / "casa.dxf") in await call(client, "exportar_plano", project_path=path)
+
+    def convert(source: Path, dest: Path, *, version: str) -> None:
+        dest.write_bytes(version.encode())
+
+    monkeypatch.delenv(server.REMOTE_ENV)
+    monkeypatch.setattr(odafc, "is_installed", lambda: True)
+    monkeypatch.setattr(odafc, "convert", convert)
+    exported = await call(
+        client, "exportar_plano", project_path=path, formato="dwg", version_dwg="R2013"
+    )
+    assert f"DWG R2013 exportado en {outputs / 'casa.dwg'}" in exported
+    assert (outputs / "casa.dwg").read_bytes() == b"R2013"
 
 
 async def test_assigned_blocks_are_versioned_and_listed(client: Client, tmp_path: Path) -> None:

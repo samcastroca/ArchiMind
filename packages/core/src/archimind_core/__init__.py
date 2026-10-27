@@ -17,6 +17,7 @@ from archimind_core.build_rules import (
 )
 from archimind_core.compare import AREA_CHANGE_TOL, SpaceChange, VersionDiff, compare_versions
 from archimind_core.drawing import Drawing, DrawingError, read_drawing
+from archimind_core.export_dwg import DwgVersion, export_dwg
 from archimind_core.export_dxf import ExportError, export_dxf
 from archimind_core.history import (
     HistoryError,
@@ -74,6 +75,7 @@ __all__ = [
     "Drawing",
     "DrawingError",
     "DrawingUnits",
+    "DwgVersion",
     "ExportError",
     "HistoryError",
     "LayerProposal",
@@ -105,6 +107,7 @@ __all__ = [
     "detect_units",
     "draw_model",
     "export_area_table_csv",
+    "export_dwg",
     "export_dxf",
     "import_drawing",
     "init_repo",

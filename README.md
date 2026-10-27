@@ -149,7 +149,10 @@ repositorio del proyecto y responden con el hash de la versión:
 - `validar_modelo`, `listar_espacios` y `listar_vanos` (con el bloque de cada vano).
 - `cuadro_de_areas`: con la escala confirmada, además escribe `salidas/cuadro_de_areas.csv`.
 - `comparar_versiones(version_a, version_b)`: hashes o referencias como `HEAD~1`.
-- `exportar_plano(formato)`: `"png"` → `salidas/vista.png`; `"dxf"` → `salidas/<proyecto>.dxf`.
+- `exportar_plano(formato="dxf", version_dwg="R2018")`: `"png"` → `salidas/vista.png`; `"dxf"` →
+  `salidas/<proyecto>.dxf`; `"dwg"` → `salidas/<proyecto>.dwg` (R2013 o R2018) con el DXF al
+  lado, mediante ODA File Converter. Si el servidor corre en remoto, con la variable de entorno
+  `ARCHIMIND_REMOTO=1`, el DWG queda deshabilitado con un mensaje que ofrece el DXF.
 - `asignar_bloques(borrador="salidas/borrador_bloques.json")`: guarda en el modelo la
   carpintería que propuso `archimind-bloques`.
 
@@ -240,6 +243,10 @@ La lógica de `core`:
   `A-VANO`), los espacios (`A-ESPACIO`), sus nombres (`A-TEXTO`) y sus áreas (`A-AREA`). Con la
   escala sin confirmar lanza `ExportError` y no escribe nada. Al volver a importarlo con
   `build_model` sale el mismo modelo.
+- **`export_dwg(project, ruta, version="R2018")`** escribe ese DXF junto a la ruta y lo convierte
+  a DWG R2013 o R2018 con ODA File Converter. Sin la escala confirmada o sin ODA instalado lanza
+  `ExportError` y no escribe nada; el mensaje explica cómo instalarlo y ofrece el DXF. La prueba
+  de ida y vuelta (mismas entidades y longitudes por capa que el DXF) se omite si ODA no está.
 - **`assign_blocks(project, draft)`** aplica un `BlocksDraft`: comprueba todo antes de cambiar
   nada (que cada vano exista, sea del tipo del bloque —un vano sin tipo adopta el del bloque— y
   mida lo mismo ± 1 mm; si no, el modelo cambió desde el borrador y hay que repetirlo), pone a

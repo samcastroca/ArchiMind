@@ -37,6 +37,13 @@ Usar una carpeta nueva, p. ej. `C:\Temp\casa-prueba`, y como plano
    distinta y los muros movidos.
 8. Pedir: «Exporta el DXF». Abrir `salidas/casa-prueba.dxf` en un CAD: debe estar en metros,
    con las capas A-MURO, A-PUERTA, A-VENTANA, A-ESPACIO, A-TEXTO y A-AREA.
+   - Pedir: «Exporta el plano en DWG». Sin [ODA File Converter](https://www.opendesign.com/guestfiles/oda_file_converter)
+     instalado, debe explicar cómo instalarlo y ofrecer el DXF, y no debe aparecer ningún
+     archivo nuevo en `salidas/`. Con ODA instalado, debe aparecer `salidas/casa-prueba.dwg` (y
+     el DXF al lado); abierto en AutoCAD o DWG TrueView, debe tener las mismas capas que el DXF.
+     Pedir después «Ahora en DWG para AutoCAD 2015»: la respuesta debe decir R2013.
+   - Con ODA instalado, `uv run --package archimind-core pytest packages/core/tests/test_export_dwg.py -rs`
+     ya no debe omitir la prueba de ida y vuelta (sin ODA aparece como `SKIPPED`).
 9. En el menú «+» del chat, adjuntar el recurso «Modelo del proyecto actual». Debe mostrar el
    resumen de `casa-prueba` con las últimas versiones.
 10. En la carpeta, `git log --oneline` debe mostrar un commit por cada paso que modificó el
