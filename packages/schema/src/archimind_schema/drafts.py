@@ -4,9 +4,11 @@ Viajan como archivos JSON en la carpeta del proyecto: así ninguna medida pasa p
 orquesta los servidores.
 """
 
-from pydantic import BaseModel, ConfigDict, Field
+from typing import Literal
 
-from archimind_schema.models import AxisSide, BlockDefinition
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+from archimind_schema.models import AxisSide, BlockDefinition, Point2D, SpacePolygon, id_pattern
 
 
 class BlockAssignment(BaseModel):
@@ -23,3 +25,67 @@ class BlocksDraft(BaseModel):
     model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
     assignments: list[BlockAssignment] = Field(min_length=1)
+
+
+class _Edit(BaseModel):
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
+
+    id: str
+
+
+class WallEdit(_Edit):
+    """Los valores nuevos de un muro recto; `height` con la semántica de `Wall.height`."""
+
+    axis: list[Point2D] = Field(min_length=2)
+    thickness: float = Field(gt=0)
+    height: float | None = Field(default=None, gt=0)
+
+
+class OpeningEdit(_Edit):
+    """Los valores nuevos de un vano en su mismo muro."""
+
+    offset: float = Field(ge=0)
+    width: float = Field(gt=0)
+    height: float = Field(gt=0)
+    sill_height: float = Field(ge=0)
+
+
+class SpaceEdit(_Edit):
+    polygon: SpacePolygon
+
+
+_EDIT_PREFIXES = {"walls": "muro", "openings": "vano", "spaces": "esp"}
+
+
+class EditsDraft(BaseModel):
+    """Ediciones de geometría hechas fuera de ArchiMind (en Rhino) sobre una versión del modelo:
+    entidades modificadas e IDs borrados. `base_sha256` es el SHA-256 de `modelo.json` tal como
+    se cargó: si el modelo cambió desde entonces, core debe rechazar el borrador."""
+
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
+
+    source: Literal["rhino"]
+    base_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    walls: list[WallEdit] = Field(default_factory=list)
+    openings: list[OpeningEdit] = Field(default_factory=list)
+    spaces: list[SpaceEdit] = Field(default_factory=list)
+    deleted: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _check_ids(self) -> "EditsDraft":
+        ids = [*(e.id for e in self.walls), *(e.id for e in self.openings)]
+        ids += [*(e.id for e in self.spaces), *self.deleted]
+        if not ids:
+            raise ValueError("el borrador no tiene ningún cambio")
+        repeated = sorted({i for i in ids if ids.count(i) > 1})
+        if repeated:
+            raise ValueError(f"IDs repetidos en el borrador: {', '.join(repeated)}")
+        for field, prefix in _EDIT_PREFIXES.items():
+            for edit in getattr(self, field):
+                if not id_pattern(prefix).match(edit.id):
+                    raise ValueError(f"{edit.id} no es un ID {prefix}- válido en {field}")
+        deletable = id_pattern("(?:muro|vano|esp)")
+        bad = [i for i in self.deleted if not deletable.match(i)]
+        if bad:
+            raise ValueError(f"solo se borran muros, vanos y espacios: {', '.join(bad)}")
+        return self

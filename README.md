@@ -280,8 +280,10 @@ carpintería paramétrica con el suyo. `schema`:
   el catálogo. Los vanos con la misma carpintería comparten bloque; cada vano guarda `block_id` y
   `block_side`, el lado del eje (recorrido de inicio a fin) hacia el que mira el «adentro» del
   bloque.
-- **Borradores** (`BlocksDraft`): la carpintería que `bloques` propone para unos vanos, en un JSON
-  de la carpeta del proyecto, para que core la valide y la aplique.
+- **Borradores**, en un JSON de la carpeta del proyecto, para que core los valide y los aplique:
+  `BlocksDraft`, la carpintería que `bloques` propone para unos vanos, y `EditsDraft`, lo editado
+  en Rhino sobre una versión del modelo (muros, vanos y espacios con sus valores nuevos, e IDs
+  borrados) con el SHA-256 de esa versión (`base_sha256`), para rechazarlo si el modelo cambió.
 - **IDs inéditos** con prefijo (`niv-`, `muro-`, `vano-`, `esp-`, `blq-`): `new_id` usa un contador
   por prefijo que solo avanza y se guarda con el modelo.
 - **Geometría derivada** con shapely: longitud y huella de muros, huella de vanos

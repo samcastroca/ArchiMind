@@ -1,6 +1,13 @@
 """Modelo semántico del plano (Pydantic v2) y sus validadores."""
 
-from archimind_schema.drafts import BlockAssignment, BlocksDraft
+from archimind_schema.drafts import (
+    BlockAssignment,
+    BlocksDraft,
+    EditsDraft,
+    OpeningEdit,
+    SpaceEdit,
+    WallEdit,
+)
 from archimind_schema.geometry import (
     opening_polygon,
     space_area,
@@ -42,15 +49,19 @@ __all__ = [
     "BlockAssignment",
     "BlockDefinition",
     "BlocksDraft",
+    "EditsDraft",
     "LayerRole",
     "Level",
     "Opening",
+    "OpeningEdit",
     "Point2D",
     "Problem",
     "Project",
     "Space",
+    "SpaceEdit",
     "SpacePolygon",
     "Wall",
+    "WallEdit",
     "load_project",
     "new_id",
     "opening_polygon",
