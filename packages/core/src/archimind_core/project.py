@@ -105,13 +105,13 @@ def active_drawing(project_path: str | Path) -> Drawing:
 
 
 def apply_mapping(
-    project_path: str | Path, drawing: Drawing, mapping: Mapping[str, str]
+    project_path: str | Path, drawing: Drawing, mapping: Mapping[str, str], view: int | None = None
 ) -> BuildResult:
     """Guarda el mapeo de capas y reconstruye el modelo del proyecto desde el plano.
 
     El modelo reconstruido conserva el nombre, las fuentes y los contadores de IDs del proyecto:
     sus muros, vanos y espacios reciben IDs nuevos. La escala vuelve a ser la del plano. Si el
-    mapeo no es válido, no escribe nada.
+    mapeo no es válido, o el plano tiene varias vistas y falta `view`, no escribe nada.
     """
     validate_roles(mapping)
     layers = {layer for _, layer in modelspace_entities(drawing.doc)}
@@ -123,7 +123,7 @@ def apply_mapping(
     source = _source_name(drawing.path, folder)
     if source not in project.source_files:
         project.source_files.append(source)
-    result = build_model(drawing, mapping, base=project)
+    result = build_model(drawing, mapping, base=project, view=view)
     save_project(result.project, folder)
     return result
 

@@ -40,6 +40,7 @@ EN_L_DORMITORIO = 3.80 * 4.85 + (_DIAGONAL - 4.95) ** 2 / 2
 _CHAMFER_LEG = 10 + 0.10 * math.sqrt(2) - 4.10 - 4.10
 USEFUL = {
     "rect_simple": 4.00 * 3.00,
+    "planta_y_alzado": 4.00 * 3.00,  # solo la planta: el alzado no se reconstruye
     "apto_2hab": APTO_2HAB,
     "apto_capas_caoticas": APTO_2HAB,
     "muros_linea_doble": APTO_2HAB,
@@ -48,6 +49,7 @@ USEFUL = {
 }
 BUILT = {
     "rect_simple": 4.30 * 3.30,
+    "planta_y_alzado": 4.30 * 3.30,
     "apto_2hab": 8.70 * 6.70,
     "apto_capas_caoticas": 8.70 * 6.70,
     "muros_linea_doble": 8.70 * 6.70,
@@ -58,7 +60,8 @@ BUILT = {
 
 def _rebuilt(case: str) -> Project:
     drawing = read_drawing(GOLDEN_DIR / case / "input.dxf")
-    return build_model(drawing, proposals_to_mapping(propose_mapping(drawing))).project
+    mapping = proposals_to_mapping(propose_mapping(drawing))
+    return build_model(drawing, mapping, view=CASES[case].view).project
 
 
 def test_hand_values_cover_every_case() -> None:

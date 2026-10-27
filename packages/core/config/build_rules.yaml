@@ -15,6 +15,9 @@ max_void_width_m: 3.0
 symbol_search_m: 0.05
 # Las caras de menos área son restos numéricos, no espacios.
 min_space_area_m2: 0.05
+# Dos grupos de muros separados por más que esto son vistas distintas del dibujo (una planta y
+# un alzado lado a lado): hay que elegir cuál es la planta. Por debajo, son huecos de una vista.
+view_gap_m: 8.0
 
 # Lo que un plano 2D no transmite. Se usa y se declara en el aviso «valores_por_defecto».
 level:

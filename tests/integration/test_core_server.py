@@ -360,6 +360,54 @@ async def test_errors_reach_the_model_with_a_clear_message(client: Client, tmp_p
 # --- Recurso y respuestas cortas ---------------------------------------------------------
 
 
+async def test_several_views_ask_which_is_the_plan(client: Client, tmp_path: Path) -> None:
+    folder = tmp_path / "casa"
+    path = str(folder)
+    await call(client, "abrir_proyecto", project_path=path)
+    plan = str(_plan(tmp_path, "planta_y_alzado"))
+    await call(client, "importar_plano", project_path=path, file_path=plan)
+    mapping = {"A-MURO": "walls", "A-PUERTA": "doors", "A-TEXTO": "text"}
+    before, model = _versions(folder), load_project(folder)
+
+    warning = await call(client, "aplicar_mapeo", project_path=path, mapping=mapping)
+    assert warning.startswith("Aviso: no se aplicó el mapeo")
+    assert "Vista 1: x de -0.15 a 4.15, y de -0.15 a 3.15" in warning
+    assert "Vista 2: x de 14.00 a 19.44, y de 0.00 a 2.80" in warning
+    assert "vista" in warning.splitlines()[-1]
+    assert _versions(folder) == before and load_project(folder) == model
+
+    applied = await call(client, "aplicar_mapeo", project_path=path, mapping=mapping, vista=1)
+    assert "1 nivel, 4 muros, 1 vano, 1 espacio" in applied
+    assert "se reconstruye la vista 1" in applied and "2 sombreados (HATCH)" in applied
+    assert _versions(folder) == before + 1
+    assert "No existe la vista 3" in await fails(
+        client, "aplicar_mapeo", project_path=path, mapping=mapping, vista=3
+    )
+
+
+async def test_unexpected_failures_say_where_and_are_logged(
+    client: Client,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    folder = tmp_path / "casa"
+    path = str(folder)
+    await call(client, "abrir_proyecto", project_path=path)
+    plan = str(_plan(tmp_path, "rect_simple"))
+    await call(client, "importar_plano", project_path=path, file_path=plan)
+
+    def broken(*_: object) -> None:
+        raise ZeroDivisionError("division by zero")
+
+    monkeypatch.setattr("archimind_core.build.reconstruct_walls", broken)
+    message = await fails(client, "aplicar_mapeo", project_path=path, mapping={"A-MURO": "walls"})
+    assert "falló en la etapa de muros: ZeroDivisionError: division by zero" in message
+    assert "registro del servidor" in message
+    [record] = [r for r in caplog.records if r.name == "archimind_core"]
+    assert record.exc_info is not None and "aplicar_mapeo" in record.getMessage()
+
+
 async def test_the_resource_follows_the_last_project_used(client: Client, tmp_path: Path) -> None:
     assert "usa abrir_proyecto" in await read_model(client)
     await call(client, "abrir_proyecto", project_path=str(tmp_path / "uno"))

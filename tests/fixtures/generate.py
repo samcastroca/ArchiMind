@@ -30,7 +30,7 @@ def generate(case: str, force: bool = False) -> Path:
     folder.mkdir(parents=True, exist_ok=True)
     _, dimensions = CASES[case].model()
     project = expected_project(case)
-    write_dxf(project, dimensions, CASES[case].style, folder / "input.dxf")
+    write_dxf(project, dimensions, CASES[case].style, folder / "input.dxf", CASES[case].extras)
     (folder / "expected.json").write_text(
         project.model_dump_json(indent=2) + "\n", encoding="utf-8"
     )

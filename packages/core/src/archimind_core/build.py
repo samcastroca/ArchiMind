@@ -8,11 +8,13 @@ from archimind_schema import Level, Problem, Project, Wall, new_id, validate
 from shapely import unary_union
 
 from archimind_core.build_rules import BuildRules, load_build_rules
+from archimind_core.errors import stage
 from archimind_core.extract import extract
 from archimind_core.layer_rules import LayerRules, load_rules
 from archimind_core.mapping import validate_roles
 from archimind_core.openings import place_openings
 from archimind_core.spaces import place_spaces
+from archimind_core.views import choose_view, find_views
 from archimind_core.walls import Gap, reconstruct_walls
 
 if TYPE_CHECKING:
@@ -34,6 +36,7 @@ def build_model(
     rules: BuildRules | None = None,
     layer_rules: LayerRules | None = None,
     base: Project | None = None,
+    view: int | None = None,
 ) -> BuildResult:
     """Muros, vanos y espacios del plano según el rol de cada capa. No escribe nada.
 
@@ -42,10 +45,20 @@ def build_model(
 
     Con `base`, el modelo reconstruido conserva su identidad, sus fuentes y sus contadores de
     IDs: los elementos nuevos nunca reutilizan un ID retirado.
+
+    Si los muros forman varias vistas separadas (una planta y un alzado lado a lado), no las
+    mezcla: sin `view` lanza ViewChoiceNeeded con la lista, y con `view` usa solo esa.
+
+    Un fallo inesperado sale como BuildStageError, con la etapa y, si se sabe, el elemento.
     """
     validate_roles(mapping)
     rules = rules or load_build_rules()
-    content = extract(drawing, mapping, layer_rules or load_rules())
+    layer_rules = layer_rules or load_rules()
+    with stage("lectura del plano"):
+        content = extract(drawing, mapping, layer_rules)
+    with stage("vistas"):
+        views = find_views(content, rules.view_gap_m)
+    content, view_warnings = choose_view(content, views, view)
     if base is None:
         project = Project(
             id=drawing.path.stem,
@@ -69,7 +82,7 @@ def build_model(
     )
     project.levels.append(level)
 
-    warnings: list[Problem] = []
+    warnings: list[Problem] = list(view_warnings)
     if not any(role == "walls" for role in mapping.values()):
         warnings.append(_warning("sin_capa_de_muros", "ninguna capa tiene el rol de muros"))
     for layer in sorted(content.mixed_layers):
@@ -80,25 +93,29 @@ def build_model(
             )
         )
 
-    symbols = unary_union([*content.symbols["door"], *content.symbols["window"]])
-    reconstructed = reconstruct_walls(content, symbols, rules)
-    warnings += reconstructed.warnings
-    gaps: dict[str, list[Gap]] = {}
-    for draft in reconstructed.walls:
-        wall = Wall(
-            id=new_id(project, "muro"),
-            level_id=level.id,
-            axis=[draft.start, draft.end],
-            thickness=draft.thickness,
-            source_layer=draft.layer,
-        )
-        project.walls.append(wall)
-        gaps[wall.id] = draft.gaps
-    warnings += place_openings(project, gaps, content, rules)
-    warnings += place_spaces(project, reconstructed.material, content.labels, rules)
+    with stage("muros"):
+        symbols = unary_union([*content.symbols["door"], *content.symbols["window"]])
+        reconstructed = reconstruct_walls(content, symbols, rules)
+        warnings += reconstructed.warnings
+        gaps: dict[str, list[Gap]] = {}
+        for draft in reconstructed.walls:
+            wall = Wall(
+                id=new_id(project, "muro"),
+                level_id=level.id,
+                axis=[draft.start, draft.end],
+                thickness=draft.thickness,
+                source_layer=draft.layer,
+            )
+            project.walls.append(wall)
+            gaps[wall.id] = draft.gaps
+    with stage("vanos"):
+        warnings += place_openings(project, gaps, content, rules)
+    with stage("espacios"):
+        warnings += place_spaces(project, reconstructed.material, content.labels, rules)
     warnings += _defaults(project, rules)
-    # Revalida el conjunto (contadores de IDs incluidos); los roles ya se comprobaron.
-    project = Project.model_validate({**project.model_dump(), "layer_mapping": dict(mapping)})
+    with stage("validación del modelo"):
+        # Revalida el conjunto (contadores de IDs incluidos); los roles ya se comprobaron.
+        project = Project.model_validate({**project.model_dump(), "layer_mapping": dict(mapping)})
     return BuildResult(project, [*warnings, *validate(project)])
 
 

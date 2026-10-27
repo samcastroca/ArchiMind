@@ -314,9 +314,10 @@ carpintería paramétrica con el suyo, y en `bridges/rhino` el puente con Rhino 
   marca las cantidades como preliminares.
 
 Casos golden para probar importadores, en `tests/golden/<caso>/` (`input.dxf`, `expected.json` e
-`input.png`): `rect_simple`, `apto_2hab`, `apto_capas_caoticas`, `en_l`, `muros_linea_doble` y
-`milimetros`. El modelo esperado está escrito a mano en `tests/fixtures/cases.py` y el DXF se
-dibuja a partir de él con ezdxf.
+`input.png`): `rect_simple`, `apto_2hab`, `apto_capas_caoticas`, `en_l`, `muros_linea_doble`,
+`milimetros` y `planta_y_alzado` (la planta de `rect_simple` con un alzado al lado y sombreados en
+la misma capa de muros; se reconstruye con `vista=1`). El modelo esperado está escrito a mano en
+`tests/fixtures/cases.py` y el DXF se dibuja a partir de él con ezdxf.
 
 - `uv run python tests/fixtures/generate.py [--caso X] --force` regenera los casos (sin `--force`
   no sobrescribe nada).
@@ -341,7 +342,9 @@ repositorio del proyecto y responden con el hash de la versión:
 - `importar_plano(file_path)`: copia el DXF/DWG a `planos/`, lo deja activo y devuelve las capas
   y las unidades detectadas con su evidencia.
 - `proponer_mapeo_capas`: rol, confianza y evidencia por capa, con el mapeo listo para aplicar.
-- `aplicar_mapeo(mapping)`: guarda el mapeo y reconstruye el modelo, con IDs nuevos.
+- `aplicar_mapeo(mapping, vista=None)`: guarda el mapeo y reconstruye el modelo, con IDs nuevos.
+  Si los muros forman varias vistas separadas, no cambia nada y responde con un aviso que lista
+  cada vista con su extensión; se repite con `vista` = el número de la planta.
 - `confirmar_escala(muro_id=None, longitud_real=None)`: sin argumentos confirma las unidades
   detectadas; con argumentos recalcula la escala.
 - `validar_modelo`, `listar_espacios` y `listar_vanos` (con el bloque de cada vano).
@@ -355,8 +358,10 @@ repositorio del proyecto y responden con el hash de la versión:
   carpintería que propuso `archimind-bloques`.
 
 El recurso `archimind://proyecto/modelo` resume el último proyecto abierto o usado en la sesión:
-plano activo, escala, conteos, áreas, validación y últimas versiones. Los errores previstos
-llegan al cliente con su mensaje en español (`ToolError`). Las pruebas de integración
+plano activo, escala, conteos, áreas, validación y últimas versiones. Toda excepción llega al
+cliente como `ToolError`: los errores previstos con su mensaje en español, y los imprevistos con
+la etapa de la reconstrucción en que fallaron (lectura del plano, vistas, muros, vanos, espacios
+o validación), la entidad o el muro si se sabe, y el traceback en el registro (stderr). Las pruebas de integración
 (`tests/integration/`) llaman a cada herramienta en proceso con un cliente MCP en memoria, y
 una más arranca el servidor por stdio.
 
@@ -396,15 +401,23 @@ La lógica de `core`:
   nada. La reconstrucción conserva el nombre, las fuentes y los contadores de IDs: los muros,
   vanos y espacios reciben IDs nuevos, nunca uno retirado, y la escala vuelve a ser la del plano.
   `proposals_to_mapping` convierte la propuesta en mapeo.
-- **`build_model(drawing, mapping, base=None)`** reconstruye el modelo y devuelve un
+- **`build_model(drawing, mapping, base=None, view=None)`** reconstruye el modelo y devuelve un
   `BuildResult` con el `Project` y sus problemas (los avisos de la reconstrucción más los de
   `validate`). No escribe nada. Con `base`, el modelo conserva el id, el nombre, las fuentes y
-  los contadores de IDs de ese proyecto.
+  los contadores de IDs de ese proyecto. Un fallo imprevisto sale como `BuildStageError`.
+  - Vistas: los tramos de muro separados más de `view_gap_m` (8 m) forman vistas distintas, como
+    una planta y un alzado lado a lado. Con más de una, sin `view` lanza `ViewChoiceNeeded` con
+    la lista; con `view` solo se lee esa vista, con el aviso `vista_elegida`.
+  - Limpieza: los tramos repetidos y los de longitud cero se descartan, los arcos (también los
+    bulges de las polilíneas) se aproximan con tramos rectos a 1 mm, y un contorno que se corta
+    a sí mismo se repara con `make_valid`. Los sombreados (HATCH) de las capas de muros no se
+    usan y se avisan con su cantidad (`sombreado_en_capa_de_muros`).
   - Muros: las líneas de muro que cierran anillos forman el material; dos caras paralelas
     separadas entre 0.05 y 0.50 m con material entre ambas dan un tramo (eje a media distancia,
     espesor medido sin redondear). Los tramos colineales de igual espesor se unen a través de
     las uniones y de los huecos, y cada extremo se lleva al eje del muro con el que forma una L
-    o una T, a cualquier ángulo. También lee polilíneas de eje con ancho constante; las líneas
+    o una T, a cualquier ángulo; un tramo que cabe entero en la huella de otro muro (como las
+    hiladas de una pilastra) se descarta. También lee polilíneas de eje con ancho constante; las líneas
     abiertas sin ancho se avisan.
   - Vanos: cada hueco del muro con su símbolo de puerta o ventana encima (líneas o bloque), con
     offset y ancho medidos. Sin símbolo es un vano `void` con aviso; más largo de 3 m sin

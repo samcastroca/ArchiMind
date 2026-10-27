@@ -6,7 +6,9 @@ repositorio del proyecto. Se ejecuta con `uv run --package archimind-core archim
 """
 
 import functools
+import logging
 import os
+import sys
 from collections.abc import Callable
 from pathlib import Path
 from typing import Annotated, Literal, ParamSpec
@@ -22,6 +24,7 @@ from archimind_core.blocks import DRAFT_PATH, BlocksError, apply_block_draft
 from archimind_core.build_rules import BuildRulesError
 from archimind_core.compare import compare_versions
 from archimind_core.drawing import DrawingError
+from archimind_core.errors import BuildStageError
 from archimind_core.export_dwg import DwgVersion, export_dwg
 from archimind_core.export_dxf import ExportError, export_dxf
 from archimind_core.history import HistoryError, commit, load_version
@@ -42,6 +45,7 @@ from archimind_core.project import (
 from archimind_core.quantities import QuantitiesError, area_table, export_area_table_csv
 from archimind_core.render import render_model
 from archimind_core.scale import ScaleError, confirm_scale
+from archimind_core.views import ViewChoiceNeeded, ViewError
 
 INSTRUCTIONS = """\
 ArchiMind convierte planos arquitectónicos DXF/DWG en un modelo semántico (muros, vanos,
@@ -74,6 +78,7 @@ USER_ERRORS = (
     ProjectError,
     QuantitiesError,
     ScaleError,
+    ViewError,
 )
 
 ProjectPath = Annotated[
@@ -82,6 +87,8 @@ ProjectPath = Annotated[
 ]
 
 mcp = MCPServer("archimind-core", instructions=INSTRUCTIONS)
+# Siempre a stderr: por stdout va el protocolo MCP.
+logger = logging.getLogger("archimind_core")
 # Única memoria de la sesión: qué proyecto resume el recurso. El estado vive en la carpeta.
 _current_project: Path | None = None
 
@@ -89,9 +96,9 @@ P = ParamSpec("P")
 
 
 def _tool(annotations: ToolAnnotations) -> Callable[[Callable[P, str]], Callable[P, str]]:
-    """Registra la herramienta y convierte los errores previstos en ToolError: en el SDK, el
-    mensaje de cualquier otra excepción no llega al cliente. Las respuestas son texto, sin
-    salida estructurada que lo repita como JSON."""
+    """Registra la herramienta y convierte toda excepción en ToolError: en el SDK, el mensaje
+    de cualquier otra no llega al cliente. Las imprevistas dejan su traceback en el log. Las
+    respuestas son texto, sin salida estructurada que lo repita como JSON."""
 
     def register(fn: Callable[P, str]) -> Callable[P, str]:
         @functools.wraps(fn)
@@ -100,11 +107,22 @@ def _tool(annotations: ToolAnnotations) -> Callable[[Callable[P, str]], Callable
                 return fn(*args, **kwargs)
             except USER_ERRORS as exc:
                 raise ToolError(str(exc)) from exc
+            except Exception as exc:
+                logger.exception("Fallo inesperado en %s", fn.__name__)
+                raise ToolError(_unexpected(exc)) from exc
 
         mcp.tool(annotations=annotations, structured_output=False)(wrapper)
         return fn
 
     return register
+
+
+def _unexpected(exc: Exception) -> str:
+    cause = str(exc) if isinstance(exc, BuildStageError) else f"{type(exc).__name__}: {exc}"
+    return (
+        f"Fallo inesperado de ArchiMind. {cause}. El modelo no se modificó y el detalle completo "
+        "quedó en el registro del servidor."
+    )
 
 
 def _use(project_path: str) -> tuple[Path, Project]:
@@ -181,15 +199,30 @@ def aplicar_mapeo(
             )
         ),
     ],
+    vista: Annotated[
+        int | None,
+        Field(
+            description=(
+                "Solo si una respuesta anterior avisó de varias vistas: el número de la que es "
+                "la planta, elegido por el usuario."
+            ),
+            ge=1,
+        ),
+    ] = None,
 ) -> str:
     """Guarda el mapeo de capas y reconstruye el modelo (muros, vanos y espacios) desde el plano
     activo. Úsala con la propuesta de proponer_mapeo_capas, tal cual o corregida por el usuario,
     y cada vez que haya que cambiar un rol. Reemplaza los muros, vanos y espacios anteriores por
     otros con IDs nuevos, y la escala vuelve a ser la del plano: si se había confirmado o
-    recalculado con confirmar_escala, hay que repetirlo. Devuelve los conteos y los avisos."""
+    recalculado con confirmar_escala, hay que repetirlo. Si los muros forman varias vistas (una
+    planta y un alzado lado a lado), no cambia nada y avisa con la lista: se repite con vista.
+    Devuelve los conteos y los avisos."""
     folder, _ = _use(project_path)
     drawing = active_drawing(folder)
-    result = apply_mapping(folder, drawing, mapping)
+    try:
+        result = apply_mapping(folder, drawing, mapping, vista)
+    except ViewChoiceNeeded as choice:
+        return summaries.view_choice(_relative(folder, drawing.path), choice.views)
     project = result.project
     version = commit(
         folder,
@@ -386,6 +419,11 @@ def modelo_actual() -> str:
 
 
 def main() -> None:
+    logging.basicConfig(
+        stream=sys.stderr,
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    )
     mcp.run()
 
 

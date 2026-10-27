@@ -40,6 +40,7 @@ class BuildRules(_Rules):
     max_void_width_m: float = Field(gt=0)
     symbol_search_m: float = Field(ge=0)
     min_space_area_m2: float = Field(ge=0)
+    view_gap_m: float = Field(gt=0)
     level: LevelDefaults
     openings: dict[OpeningKind, OpeningDefaults]
     space_category: SpaceCategory

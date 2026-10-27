@@ -1,3 +1,4 @@
+import math
 import tempfile
 from collections.abc import Callable
 from pathlib import Path
@@ -6,12 +7,17 @@ import ezdxf
 import pytest
 from archimind_core import (
     BuildResult,
+    BuildStageError,
     MappingError,
+    ViewChoiceNeeded,
+    ViewError,
     build_model,
     proposals_to_mapping,
     propose_mapping,
     read_drawing,
 )
+from archimind_core.layer_roles import Segment
+from archimind_core.walls import wall_material
 from archimind_schema import (
     Annotation,
     Level,
@@ -22,10 +28,12 @@ from archimind_schema import (
     SpacePolygon,
     Wall,
     new_id,
+    space_area,
 )
 from cases import CASES, STANDARD, expected_project
 from dxf_writer import write_dxf
 from ezdxf.document import Drawing as DXFDocument
+from ezdxf.entities import LWPolyline
 from golden import GOLDEN_DIR, assert_matches, assert_matches_golden
 from hypothesis import example, given, settings
 from hypothesis import strategies as st
@@ -42,7 +50,8 @@ MAPPING = {
 
 def _build_case(case: str) -> BuildResult:
     drawing = read_drawing(GOLDEN_DIR / case / "input.dxf")
-    return build_model(drawing, proposals_to_mapping(propose_mapping(drawing)))
+    mapping = proposals_to_mapping(propose_mapping(drawing))
+    return build_model(drawing, mapping, view=CASES[case].view)
 
 
 def _codes(result: BuildResult) -> list[str]:
@@ -53,7 +62,9 @@ def _codes(result: BuildResult) -> list[str]:
 def test_golden_case_is_rebuilt(case: str) -> None:
     result = _build_case(case)
     assert_matches_golden(result.project, case)
-    assert _codes(result) == ["valores_por_defecto"]
+    # Lo que el DXF dibuja además del modelo se avisa: la otra vista y sus sombreados.
+    extra = ["sombreado_en_capa_de_muros", "vista_elegida"] if CASES[case].extras else []
+    assert _codes(result) == sorted(["valores_por_defecto", *extra])
 
 
 def test_project_carries_scale_mapping_and_source() -> None:
@@ -362,3 +373,117 @@ def test_expected_projects_rebuild_from_their_own_drawing() -> None:
     """El escritor y el reconstructor son inversos en los casos: sin cambiar nada."""
     project = expected_project("en_l")
     assert_matches(_build(project).project, project)
+
+
+# --- Vistas, sombreados, limpieza y fallos ----------------------------------------------------
+
+
+def test_plan_and_elevation_are_not_mixed() -> None:
+    drawing = read_drawing(GOLDEN_DIR / "planta_y_alzado" / "input.dxf")
+    with pytest.raises(ViewChoiceNeeded) as choice:
+        build_model(drawing, MAPPING)
+    plan, elevation = choice.value.views
+    assert (plan.number, elevation.number) == (1, 2)
+    assert plan.bounds == pytest.approx((-0.15, -0.15, 4.15, 3.15))
+    assert elevation.bounds == pytest.approx((14.0, 0.0, 19.44, 2.8))
+    with pytest.raises(ViewError, match="vistas de 1 a 2"):
+        build_model(drawing, MAPPING, view=3)
+
+
+def test_single_view_needs_no_choice() -> None:
+    drawing = read_drawing(GOLDEN_DIR / "rect_simple" / "input.dxf")
+    assert len(build_model(drawing, MAPPING, view=1).project.walls) == 4
+    with pytest.raises(ViewError, match="una sola vista"):
+        build_model(drawing, MAPPING, view=2)
+
+
+def test_hatches_on_wall_layer_are_counted_not_used() -> None:
+    result = _build_case("planta_y_alzado")
+    [hatches] = [p for p in result.problems if p.code == "sombreado_en_capa_de_muros"]
+    assert "'A-MURO' tiene 2 sombreados" in hatches.message
+    assert "HATCH" not in str([p.message for p in result.problems if p is not hatches])
+
+
+@settings(max_examples=25, deadline=None)
+@given(t=st.floats(0.10, 0.50), course=st.floats(0.05, 0.50))
+def test_pieces_inside_another_wall_are_dropped(t: float, course: float) -> None:
+    """Las hiladas de una pilastra se emparejan como tramos que caben enteros en la huella de la
+    pilastra: la unión los deja sin longitud y se descartan sin romper la reconstrucción."""
+
+    def pilaster(doc: DXFDocument) -> None:
+        msp = doc.modelspace()
+        attribs = {"layer": "A-MURO"}
+        msp.add_lwpolyline([(6, 0), (6 + t, 0), (6 + t, 3), (6, 3)], close=True, dxfattribs=attribs)
+        for i in range(1, math.ceil(3 / course)):
+            msp.add_lwpolyline([(6, i * course), (6 + t, i * course)], dxfattribs=attribs)
+
+    result = _build(_room(), edit=pilaster)
+    assert [s.name for s in result.project.spaces] == ["Estudio"]
+
+
+def test_repeated_lines_and_vertices_change_nothing() -> None:
+    expected = _room()
+
+    def messy(doc: DXFDocument) -> None:
+        msp = doc.modelspace()
+        for entity in list(msp.query('LWPOLYLINE[layer=="A-MURO"]')):
+            assert isinstance(entity, LWPolyline)
+            points = list(entity.get_points("xy"))
+            msp.add_lwpolyline(points, close=True, dxfattribs={"layer": "A-MURO"})
+            entity.set_points([points[0], *points], format="xy")
+
+    assert_matches(_build(expected, edit=messy).project, expected)
+
+
+def test_arc_on_wall_layer_closes_the_outline(tmp_path: Path) -> None:
+    """Un muro curvo (tramo con bulge) se aproxima con tramos rectos: el contorno cierra y el
+    espacio llega hasta la curva."""
+    bulge = 0.25
+    doc = ezdxf.new("R2010", units=ezdxf.units.M)
+    msp = doc.modelspace()
+    for h in (0.0, 0.15):
+        ring = [(-h, -h, 0), (4 + h, -h, 0), (4 + h, 3 + h, bulge), (-h, 3 + h, 0)]
+        msp.add_lwpolyline(ring, format="xyb", close=True, dxfattribs={"layer": "A-MURO"})
+    msp.add_text("Ábside", dxfattribs={"layer": "A-TEXTO", "insert": (2.0, 1.5)})
+    doc.saveas(tmp_path / "curvo.dxf")
+
+    result = build_model(read_drawing(tmp_path / "curvo.dxf"), MAPPING)
+    angle = 4 * math.atan(bulge)
+    radius = 2 / math.sin(angle / 2)
+    segment = radius**2 / 2 * (angle - math.sin(angle))
+    [space] = result.project.spaces
+    assert space.name == "Ábside"
+    assert space_area(space) == pytest.approx(12 + segment, rel=1e-3)
+    assert "entidad_de_muro_no_soportada" not in _codes(result)
+
+
+def test_self_crossing_outline_is_repaired() -> None:
+    bowtie = [(0.0, 0.0), (2.0, 2.0), (2.0, 0.0), (0.0, 2.0)]
+    segments = [Segment(a, b) for a, b in zip(bowtie, bowtie[1:] + bowtie[:1], strict=True)]
+    material, open_segments = wall_material(segments)
+    assert open_segments == []
+    assert material.area == pytest.approx(2.0)
+
+
+def test_unexpected_failure_names_the_stage(monkeypatch: pytest.MonkeyPatch) -> None:
+    def broken(*_: object) -> None:
+        raise ZeroDivisionError("division by zero")
+
+    monkeypatch.setattr("archimind_core.build.reconstruct_walls", broken)
+    drawing = read_drawing(GOLDEN_DIR / "rect_simple" / "input.dxf")
+    with pytest.raises(BuildStageError, match="etapa de muros: ZeroDivisionError") as error:
+        build_model(drawing, MAPPING)
+    assert error.value.stage == "muros"
+
+
+def test_unexpected_failure_names_the_entity(monkeypatch: pytest.MonkeyPatch) -> None:
+    def broken(*_: object) -> None:
+        raise ValueError("geometría imposible")
+
+    monkeypatch.setattr("archimind_core.extract._add_wall", broken)
+    drawing = read_drawing(GOLDEN_DIR / "rect_simple" / "input.dxf")
+    with pytest.raises(BuildStageError) as error:
+        build_model(drawing, MAPPING)
+    message = str(error.value)
+    assert "etapa de lectura del plano, en la entidad LWPOLYLINE #" in message
+    assert "de la capa 'A-MURO': ValueError: geometría imposible" in message

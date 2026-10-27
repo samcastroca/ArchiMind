@@ -1,6 +1,7 @@
 """Dibuja un modelo semántico como plano DXF. Va del modelo al DXF, nunca al revés."""
 
 import math
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
@@ -47,8 +48,13 @@ class DrawStyle:
 
 
 def write_dxf(
-    project: Project, dimensions: list[Dimension], style: DrawStyle, path: str | Path
+    project: Project,
+    dimensions: list[Dimension],
+    style: DrawStyle,
+    path: str | Path,
+    extras: Callable[[Modelspace, Layers], None] | None = None,
 ) -> None:
+    """`extras` dibuja lo que el modelo no contiene, como otra vista en la misma capa."""
     doc = ezdxf.new("R2010", setup=True, units=style.insunits)
     for role, name in vars(style.layers).items():
         if name not in doc.layers:
@@ -64,6 +70,8 @@ def write_dxf(
             draw.label(annotation.text, annotation.position)
     for dimension in dimensions:
         draw.dimension(dimension)
+    if extras is not None:
+        extras(msp, style.layers)
     doc.saveas(Path(path))
 
 

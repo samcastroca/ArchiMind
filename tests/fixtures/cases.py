@@ -23,6 +23,7 @@ from archimind_schema import (
 )
 from dxf_writer import Dimension, DrawStyle, Layers
 from ezdxf import units
+from ezdxf.layouts import Modelspace
 
 SpaceCategory = Literal["useful", "balcony", "circulation", "service", "technical"]
 DOOR_HEIGHT = 2.10
@@ -249,6 +250,26 @@ def en_l() -> Model:
     return b.project, dims
 
 
+def elevation_beside(msp: Modelspace, layers: Layers) -> None:
+    """Lo que un plano real añade en la capa de muros a la planta de rect_simple: sombreados de
+    muro y, a 10 m a la derecha, un alzado. El alzado tiene la fachada y una pilastra de 0.44 m
+    con hiladas cada 0.20 m: las hiladas se emparejan como tramos de muro de 0.44 m que caben
+    enteros en la huella de la pilastra y, mezclados con la planta, quedaban sin longitud."""
+    attribs = {"layer": layers.wall}
+    # Relleno del muro izquierdo de la planta.
+    msp.add_hatch(color=8, dxfattribs=attribs).paths.add_polyline_path(
+        [(-0.15, -0.15), (0.0, -0.15), (0.0, 3.15), (-0.15, 3.15)]
+    )
+    msp.add_lwpolyline(
+        [(14.0, 0.0), (18.0, 0.0), (18.0, 2.8), (14.0, 2.8)], close=True, dxfattribs=attribs
+    )
+    pilaster = [(19.0, 0.0), (19.44, 0.0), (19.44, 2.8), (19.0, 2.8)]
+    msp.add_lwpolyline(pilaster, close=True, dxfattribs=attribs)
+    msp.add_hatch(color=8, dxfattribs=attribs).paths.add_polyline_path(pilaster)
+    for i in range(1, 14):
+        msp.add_lwpolyline([(19.0, 0.2 * i), (19.44, 0.2 * i)], dxfattribs=attribs)
+
+
 STANDARD = DrawStyle()
 CHAOTIC_LAYERS = Layers(
     wall="0", door="Capa1", window="xx_tmp", text="nueva", dimension="DEFPOINTS_2"
@@ -259,6 +280,9 @@ CHAOTIC_LAYERS = Layers(
 class Case:
     model: Callable[[], Model]
     style: DrawStyle
+    # Lo que el DXF dibuja además del modelo, y entonces qué vista es la planta.
+    extras: Callable[[Modelspace, Layers], None] | None = None
+    view: int | None = None
 
 
 CASES: dict[str, Case] = {
@@ -268,6 +292,7 @@ CASES: dict[str, Case] = {
     "en_l": Case(en_l, STANDARD),
     "muros_linea_doble": Case(apto_2hab, DrawStyle(wall_entities="lines")),
     "milimetros": Case(apto_2hab, DrawStyle(unit_scale=1000, insunits=units.MM)),
+    "planta_y_alzado": Case(rect_simple, STANDARD, extras=elevation_beside, view=1),
 }
 
 

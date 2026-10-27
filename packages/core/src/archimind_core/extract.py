@@ -7,10 +7,11 @@ from typing import TYPE_CHECKING, Literal
 
 from archimind_schema import LENGTH_TOL, Point2D
 from ezdxf import path
-from ezdxf.entities import Arc, DXFGraphic, Insert, Line, LWPolyline, MText, Text
+from ezdxf.entities import Arc, DXFGraphic, Hatch, Insert, Line, LWPolyline, MText, Text
 from shapely import LineString, MultiPoint, Point, Polygon
 from shapely.geometry.base import BaseGeometry
 
+from archimind_core.errors import about
 from archimind_core.inventory import linear_pieces, plain_text
 from archimind_core.layer_roles import Segment
 from archimind_core.layer_rules import LayerRules
@@ -59,6 +60,8 @@ class PlanContent:
     mixed_layers: set[str] = field(default_factory=set)
     # Entidades de las capas de muros que no se interpretan, por tipo DXF.
     unsupported_walls: Counter[str] = field(default_factory=Counter)
+    # Sombreados de las capas de muros, por capa: se cuentan pero no forman muros.
+    wall_hatches: Counter[str] = field(default_factory=Counter)
 
 
 def extract(drawing: "Drawing", mapping: Mapping[str, str], rules: LayerRules) -> PlanContent:
@@ -73,25 +76,28 @@ def extract(drawing: "Drawing", mapping: Mapping[str, str], rules: LayerRules) -
             layer = entity.dxf.layer
             if parent_layer is not None and layer == "0":
                 layer = parent_layer
-            role = mapping.get(layer)
-            if isinstance(entity, Insert):
-                kind = SYMBOL_ROLES.get(role or "") or SYMBOL_ROLES.get(
-                    rules.block_role(entity.dxf.name) or ""
-                )
-                if kind is None:
-                    walk(entity.virtual_entities(), layer)
-                else:
-                    content.blocks.append(_block(entity, kind, k))
-            elif role == "mixed":
-                content.mixed_layers.add(layer)
-            elif role == "walls":
-                _add_wall(content, entity, layer, k)
-            elif role in SYMBOL_ROLES:
-                content.symbols[SYMBOL_ROLES[role]].extend(_shapes(entity, k))
-            elif role == "text" and isinstance(entity, Text | MText):
-                text = plain_text(entity)
-                if text:
-                    content.labels.append(Label(text, _text_position(entity, k)))
+            with about(_described(entity, layer)):
+                add(entity, layer, mapping.get(layer))
+
+    def add(entity: DXFGraphic, layer: str, role: str | None) -> None:
+        if isinstance(entity, Insert):
+            kind = SYMBOL_ROLES.get(role or "") or SYMBOL_ROLES.get(
+                rules.block_role(entity.dxf.name) or ""
+            )
+            if kind is None:
+                walk(entity.virtual_entities(), layer)
+            else:
+                content.blocks.append(_block(entity, kind, k))
+        elif role == "mixed":
+            content.mixed_layers.add(layer)
+        elif role == "walls":
+            _add_wall(content, entity, layer, k)
+        elif role in SYMBOL_ROLES:
+            content.symbols[SYMBOL_ROLES[role]].extend(_shapes(entity, k))
+        elif role == "text" and isinstance(entity, Text | MText):
+            text = plain_text(entity)
+            if text:
+                content.labels.append(Label(text, _text_position(entity, k)))
 
     walk(drawing.doc.modelspace(), None)
     return content
@@ -102,18 +108,32 @@ def _add_wall(content: PlanContent, entity: DXFGraphic, layer: str, k: float) ->
         points = [_round((x * k, y * k)) for x, y in entity.get_points("xy")]
         content.wall_axes.append(AxisLine(points, entity.dxf.const_width * k, layer))
         return
-    pieces = linear_pieces(entity)
+    if isinstance(entity, Hatch):
+        content.wall_hatches[layer] += 1
+        return
+    pieces = linear_pieces(entity) or ([entity] if isinstance(entity, Arc) else [])
     if not pieces:
         content.unsupported_walls[entity.dxftype()] += 1
     for piece in pieces:
         if isinstance(piece, Line):
-            start, end = piece.dxf.start, piece.dxf.end
-            segment = Segment(_round((start.x * k, start.y * k)), _round((end.x * k, end.y * k)))
-            # Hasta los lados diminutos hacen falta para que el contorno cierre.
-            if segment.length > 0:
-                content.wall_segments.setdefault(layer, []).append(segment)
+            vertices = [piece.dxf.start, piece.dxf.end]
         elif isinstance(piece, Arc):
-            content.unsupported_walls["ARC"] += 1
+            # Arco: tramos rectos que se apartan de la curva como mucho la tolerancia.
+            vertices = list(piece.flattening(LENGTH_TOL / k))
+        else:
+            continue
+        points = [_round((v.x * k, v.y * k)) for v in vertices]
+        for start, end in zip(points, points[1:], strict=False):
+            # Hasta los lados diminutos hacen falta para que el contorno cierre; los de
+            # longitud cero (vértices repetidos) no.
+            if start != end:
+                content.wall_segments.setdefault(layer, []).append(Segment(start, end))
+
+
+def _described(entity: DXFGraphic, layer: str) -> str:
+    handle = entity.dxf.handle
+    where = f"#{handle}" if handle else "de un bloque"
+    return f"la entidad {entity.dxftype()} {where} de la capa {layer!r}"
 
 
 def _round(point: Point2D) -> Point2D:

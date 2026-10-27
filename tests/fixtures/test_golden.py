@@ -46,6 +46,8 @@ def test_input_dxf_has_units_layers_and_wall_entities(case: str) -> None:
         assert layer in doc.layers
     on_wall_layer = doc.modelspace().query(f'*[layer=="{style.layers.wall}"]')
     types = {entity.dxftype() for entity in on_wall_layer}
+    if CASES[case].extras is not None:
+        types.discard("HATCH")  # los sombreados de muro que añade el caso
     assert types == ({"LWPOLYLINE"} if style.wall_entities == "polyline" else {"LINE"})
 
 

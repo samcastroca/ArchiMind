@@ -21,6 +21,7 @@ from archimind_core.project import load_existing, project_folder
 from archimind_core.quantities import AreaTable, area_table, opening_counts
 from archimind_core.scale import ScaleConfirmation
 from archimind_core.units import DrawingUnits
+from archimind_core.views import View, describe
 
 MAX_LINES = 50
 CATEGORIES = {
@@ -109,6 +110,19 @@ def applied(plan: str, result: BuildResult, version: str | None) -> str:
     lines += truncate([f"  {_problem_line(p)}" for p in ordered], 35)
     lines.append("Para revisarlo: exportar_plano (png), listar_espacios, listar_vanos.")
     return _text([*lines, *_version_line(version)])
+
+
+def view_choice(plan: str, views: Sequence[View]) -> str:
+    """Aviso de aplicar_mapeo cuando el plano tiene varias vistas: no se aplicó nada."""
+    lines = [
+        f"Aviso: no se aplicó el mapeo. Los muros de {plan} forman {len(views)} vistas separadas "
+        "(por ejemplo, una planta y un alzado lado a lado) y mezclarlas daría muros y espacios "
+        "falsos:",
+        *truncate([f"  Vista {v.number}: {describe(v)}" for v in views], 20),
+        "Pregunta al usuario cuál es la planta y repite aplicar_mapeo con vista = su número. "
+        "El modelo no ha cambiado.",
+    ]
+    return _text(lines)
 
 
 def scale(confirmation: ScaleConfirmation, wall_id: str | None, units: DrawingUnits | None) -> str:

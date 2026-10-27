@@ -7,7 +7,8 @@
 3. Los tramos colineales de igual espesor se unen. Lo que hay entre dos consecutivos es una
    unión (lo cruza material de otro muro) o un hueco, que luego será un vano.
 4. Cada extremo se lleva hasta el eje del muro con el que forma una L o una T; el que acaba
-   en un vano pegado a una esquina se alarga a través del vano.
+   en un vano pegado a una esquina se alarga a través del vano. Un tramo que cabe entero en la
+   huella de otro muro queda con los dos extremos en ese eje: sin longitud, se descarta.
 """
 
 import math
@@ -21,12 +22,14 @@ from shapely import (
     MultiLineString,
     Polygon,
     line_merge,
+    make_valid,
     simplify,
     unary_union,
 )
 from shapely.geometry.base import BaseGeometry
 
 from archimind_core.build_rules import BuildRules
+from archimind_core.errors import about
 from archimind_core.extract import PlanContent
 from archimind_core.layer_roles import Segment, neighbours, parallel_groups
 
@@ -77,26 +80,28 @@ def reconstruct_walls(
     pieces: list[WallPiece] = []
     drawn = []
     for layer, segments in sorted(content.wall_segments.items()):
-        material, open_segments = wall_material(segments)
-        drawn.append(material)
-        faces = boundary_segments(material)
-        pieces += pair_faces(faces, layer, rules, partial(_is_material, material, rules))
-        if open_segments:
+        with about(f"la capa {layer!r}"):
+            material, open_segments = wall_material(segments)
+            drawn.append(material)
+            faces = boundary_segments(material)
+            pieces += pair_faces(faces, layer, rules, partial(_is_material, material, rules))
+            if not open_segments:
+                continue
             found = pair_faces(open_segments, layer, rules, partial(_is_clear, open_segments))
-            pieces += found
-            used = len(found)
-            warnings.append(
-                _warning(
-                    "muro_de_lineas_abiertas" if used else "linea_de_muro_sin_interpretar",
-                    f"la capa {layer!r} tiene {len(open_segments)} tramos de muro que no cierran "
-                    "un contorno"
-                    + (
-                        f"; se dedujeron {used} tramos de muro de sus pares paralelos: revisar"
-                        if used
-                        else ": sin espesor no se puede crear un muro"
-                    ),
-                )
+        pieces += found
+        used = len(found)
+        warnings.append(
+            _warning(
+                "muro_de_lineas_abiertas" if used else "linea_de_muro_sin_interpretar",
+                f"la capa {layer!r} tiene {len(open_segments)} tramos de muro que no cierran "
+                "un contorno"
+                + (
+                    f"; se dedujeron {used} tramos de muro de sus pares paralelos: revisar"
+                    if used
+                    else ": sin espesor no se puede crear un muro"
+                ),
             )
+        )
     axis_pieces = [
         WallPiece(a, b, axis.thickness, axis.layer)
         for axis in content.wall_axes
@@ -118,18 +123,34 @@ def reconstruct_walls(
             _warning(
                 "entidad_de_muro_no_soportada",
                 f"{count} entidades {kind} en capas de muros no se interpretan: solo se leen "
-                "tramos rectos",
+                "líneas, polilíneas y arcos",
+            )
+        )
+    for layer, count in sorted(content.wall_hatches.items()):
+        warnings.append(
+            _warning(
+                "sombreado_en_capa_de_muros",
+                f"la capa {layer!r} tiene {count} sombreados (HATCH): no se usan para "
+                "reconstruir muros, que salen de sus líneas",
             )
         )
 
     walls = merge_collinear(pieces, material, symbols, rules)
     kept = [wall for wall in walls if wall.length >= wall.thickness]
     resolve_joints(kept, rules.joint_slack_m)
+    kept = _with_length(kept)
     bridge_corner_openings(kept, material, symbols, rules)
     # Los extremos alargados hasta una esquina permiten ahora cerrar la L del otro muro.
     resolve_joints(kept, rules.joint_slack_m)
+    kept = _with_length(kept)
     warnings += _discarded(walls, kept)
     return WallsResult(kept, material, warnings)
+
+
+def _with_length(walls: Sequence[WallDraft]) -> list[WallDraft]:
+    """Sin los tramos que la unión dejó sin longitud: cabían enteros en la huella de otro muro,
+    que ya los cubre, así que no se avisan."""
+    return [wall for wall in walls if wall.length > LENGTH_TOL]
 
 
 def _discarded(walls: Sequence[WallDraft], kept: Sequence[WallDraft]) -> list[Problem]:
@@ -163,15 +184,23 @@ def wall_material(segments: Sequence[Segment]) -> tuple[BaseGeometry, list[Segme
 
     Un anillo dentro de un número impar de anillos es un hueco (el patio de un contorno); los
     anillos que se solapan sin contenerse se suman, como muros dibujados como rectángulos sueltos.
+    Los tramos repetidos cuentan una vez, y un anillo que se corta a sí mismo se repara con
+    make_valid: sus lóbulos son material.
     """
-    merged = line_merge(MultiLineString([[s.start, s.end] for s in segments]))
+    unique = dict.fromkeys(tuple(sorted((s.start, s.end))) for s in segments)
+    merged = line_merge(MultiLineString(list(unique)))
     lines = list(getattr(merged, "geoms", [merged]))
-    rings = [Polygon(line.coords) for line in lines if line.is_ring]
-    rings = [ring for ring in rings if ring.is_valid and ring.area > 0]
+    closed = [line.is_closed and len(line.coords) >= 4 for line in lines]
+    rings = [
+        part
+        for line, is_closed in zip(lines, closed, strict=True)
+        if is_closed
+        for part in _polygons(make_valid(Polygon(line.coords)))
+    ]
     open_segments = [
         Segment(a, b)
-        for line in lines
-        if not line.is_ring
+        for line, is_closed in zip(lines, closed, strict=True)
+        if not is_closed
         for a, b in zip(line.coords, line.coords[1:], strict=False)
     ]
     depth = [sum(other.contains(ring) for other in rings if other is not ring) for ring in rings]
@@ -180,6 +209,13 @@ def wall_material(segments: Sequence[Segment]) -> tuple[BaseGeometry, list[Segme
         layer = unary_union([ring for ring, d in zip(rings, depth, strict=True) if d == level])
         material = material.union(layer) if level % 2 == 0 else material.difference(layer)
     return material, open_segments
+
+
+def _polygons(geometry: BaseGeometry) -> list[Polygon]:
+    """Las partes con área de una geometría reparada; las líneas y puntos sueltos se descartan."""
+    if hasattr(geometry, "geoms"):
+        return [polygon for part in geometry.geoms for polygon in _polygons(part)]
+    return [geometry] if isinstance(geometry, Polygon) and geometry.area > 0 else []
 
 
 def boundary_segments(material: BaseGeometry) -> list[Segment]:
@@ -423,10 +459,12 @@ def resolve_joints(walls: list[WallDraft], slack: float) -> None:
     intersección de ejes. Un extremo que se pasa del eje de V sin salir de su huella se recorta.
     En una L se mueven los dos muros; en una T, solo el que llega.
     """
-    new_ends = [
-        (_joint(w, w.start, w.end, walls, slack), _joint(w, w.end, w.start, walls, slack))
-        for w in walls
-    ]
+    new_ends = []
+    for w in walls:
+        with about(_described(w)):
+            new_ends.append(
+                (_joint(w, w.start, w.end, walls, slack), _joint(w, w.end, w.start, walls, slack))
+            )
     for wall, (start, end) in zip(walls, new_ends, strict=True):
         wall.start, wall.end = start, end
 
@@ -439,36 +477,47 @@ def bridge_corner_openings(
     sumo `max_void_width_m`, y ese vacío tiene símbolo de puerta o ventana, el muro se alarga
     hasta ese eje y el vacío queda como hueco."""
     for wall in walls:
-        for at_start in (True, False):
-            end, other_end = (wall.start, wall.end) if at_start else (wall.end, wall.start)
-            u = _unit(other_end, end)
-            best: tuple[float, Point2D] | None = None
-            for other in walls:
-                crossing = _crossing(wall, end, u, other)
-                if crossing is None:
-                    continue
-                s, r, sin, _ = crossing
-                margin = wall.thickness / (2 * sin) + rules.joint_slack_m
-                reach = rules.max_void_width_m + other.thickness / (2 * sin)
-                if 0 < s <= reach and -margin <= r <= other.length + margin:
-                    if best is None or s < best[0]:
-                        best = (s, (end[0] + u[0] * s, end[1] + u[1] * s))
-            if best is None:
+        with about(_described(wall)):
+            _bridge(wall, walls, material, symbols, rules)
+
+
+def _bridge(
+    wall: WallDraft,
+    walls: list[WallDraft],
+    material: BaseGeometry,
+    symbols: BaseGeometry,
+    rules: BuildRules,
+) -> None:
+    for at_start in (True, False):
+        end, other_end = (wall.start, wall.end) if at_start else (wall.end, wall.start)
+        u = _unit(other_end, end)
+        best: tuple[float, Point2D] | None = None
+        for other in walls:
+            crossing = _crossing(wall, end, u, other)
+            if crossing is None:
                 continue
-            target = best[1]
-            voids = _voids(LineString([end, target]), material)
-            if len(voids) != 1 or math.dist(voids[0].coords[0], end) > LENGTH_TOL:
-                continue
-            void = voids[0]
-            if not symbols.intersects(
-                void.buffer(wall.thickness / 2 + rules.symbol_search_m, cap_style="flat")
-            ):
-                continue
-            wall.gaps.append(Gap(void.coords[0], void.coords[-1]))
-            if at_start:
-                wall.start = target
-            else:
-                wall.end = target
+            s, r, sin, _ = crossing
+            margin = wall.thickness / (2 * sin) + rules.joint_slack_m
+            reach = rules.max_void_width_m + other.thickness / (2 * sin)
+            if 0 < s <= reach and -margin <= r <= other.length + margin:
+                if best is None or s < best[0]:
+                    best = (s, (end[0] + u[0] * s, end[1] + u[1] * s))
+        if best is None:
+            continue
+        target = best[1]
+        voids = _voids(LineString([end, target]), material)
+        if len(voids) != 1 or math.dist(voids[0].coords[0], end) > LENGTH_TOL:
+            continue
+        void = voids[0]
+        if not symbols.intersects(
+            void.buffer(wall.thickness / 2 + rules.symbol_search_m, cap_style="flat")
+        ):
+            continue
+        wall.gaps.append(Gap(void.coords[0], void.coords[-1]))
+        if at_start:
+            wall.start = target
+        else:
+            wall.end = target
 
 
 def _crossing(
@@ -530,6 +579,10 @@ def _unit(a: Point2D, b: Point2D) -> Point2D:
 
 def _fmt(point: Point2D) -> str:
     return f"({point[0]:.2f}, {point[1]:.2f})"
+
+
+def _described(wall: WallDraft) -> str:
+    return f"el muro de la capa {wall.layer!r} de {_fmt(wall.start)} a {_fmt(wall.end)}"
 
 
 def _warning(code: str, message: str, ids: list[str] | None = None) -> Problem:
