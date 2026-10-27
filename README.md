@@ -297,8 +297,11 @@ carpintería paramétrica con el suyo, y en `bridges/rhino` el puente con Rhino 
   bloque.
 - **Borradores**, en un JSON de la carpeta del proyecto, para que core los valide y los aplique:
   `BlocksDraft`, la carpintería que `bloques` propone para unos vanos, y `EditsDraft`, lo editado
-  en Rhino sobre una versión del modelo (muros, vanos y espacios con sus valores nuevos, e IDs
-  borrados) con el SHA-256 de esa versión (`base_sha256`), para rechazarlo si el modelo cambió.
+  en Rhino sobre una versión del modelo (muros, vanos y espacios con sus valores nuevos —el
+  espacio también con su nombre—, IDs borrados y entidades nuevas sin ID: `NewWall`,
+  `NewOpening` y `NewSpace`, con un `ref` temporal `nuevo-N` al que core pone un ID inédito; un
+  vano nuevo puede ir en un muro nuevo por su `ref`) con el SHA-256 de esa versión
+  (`base_sha256`), para rechazarlo si el modelo cambió.
 - **IDs inéditos** con prefijo (`niv-`, `muro-`, `vano-`, `esp-`, `blq-`): `new_id` usa un contador
   por prefijo que solo avanza y se guarda con el modelo.
 - **Geometría derivada** con shapely: longitud y huella de muros, huella de vanos
