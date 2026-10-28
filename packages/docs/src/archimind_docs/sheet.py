@@ -7,6 +7,7 @@ la memoria se vea (las fuentes estándar de PDF solo cubren Latin-1).
 """
 
 import os
+import re
 import tempfile
 from datetime import date
 from pathlib import Path
@@ -76,11 +77,7 @@ def build_sheet(project: Project, data: dict[str, Any], memory_text: str, path: 
             ),
             Paragraph("Memoria descriptiva", styles["heading"]),
         ]
-        story += [
-            Paragraph(escape(" ".join(block.split())), styles["body"])
-            for block in memory_text.split("\n\n")
-            if block.strip()
-        ]
+        story += [Paragraph(escape(text), styles["body"]) for text in paragraphs(memory_text)]
 
         def decorate(canvas: Canvas, doc: SimpleDocTemplate) -> None:
             canvas.saveState()
@@ -103,6 +100,13 @@ def build_sheet(project: Project, data: dict[str, Any], memory_text: str, path: 
         )
         doc.build(story, onFirstPage=decorate, onLaterPages=decorate)
     return path
+
+
+def paragraphs(memory_text: str) -> list[str]:
+    """Los párrafos de la memoria, cada uno en una línea: los separa una línea en blanco, aunque
+    tenga espacios o el texto venga con saltos \\r\\n."""
+    blocks = re.split(r"\n\s*\n", memory_text)
+    return [" ".join(block.split()) for block in blocks if block.strip()]
 
 
 def _register_fonts() -> None:

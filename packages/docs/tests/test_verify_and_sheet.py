@@ -7,7 +7,7 @@ import pytest
 from archimind_core import define_heights
 from archimind_docs.items import model_items
 from archimind_docs.memory import memory_data
-from archimind_docs.sheet import build_sheet
+from archimind_docs.sheet import build_sheet, paragraphs
 from archimind_docs.verify import readings, unverified_numbers
 from cases import apto_2hab
 from hypothesis import given
@@ -98,6 +98,11 @@ def test_the_sheet_is_a_pdf(tmp_path: Path) -> None:
     assert content.startswith(b"%PDF")
     assert len(re.findall(rb"/Type /Page\b", content)) >= 1
     assert b"DejaVuSans" in content
+
+
+def test_any_blank_line_separates_the_paragraphs() -> None:
+    text = "Uno\r\nsigue.\r\n\r\nDos.\n  \nTres.\n\n\n"
+    assert paragraphs(text) == ["Uno sigue.", "Dos.", "Tres."]
 
 
 def test_an_unconfirmed_scale_marks_every_page(tmp_path: Path) -> None:
