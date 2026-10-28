@@ -27,6 +27,7 @@ TOOLS = {
     "presupuesto_preliminar",
     "verificar_programa_areas",
     "calcular_cos_cus",
+    "generar_ficha_pdf",
 }
 MAX_LINES = 50
 
@@ -177,6 +178,35 @@ async def test_cos_and_cus(client: Client, core: Client, tmp_path: Path) -> None
     assert "Planta baja" in answer and "CUS = " in answer
     rejected = await fails(client, "calcular_cos_cus", project_path=str(folder), area_lote=0)
     assert "area_lote" in rejected
+
+
+async def test_the_sheet_only_takes_verified_numbers(
+    client: Client, core: Client, tmp_path: Path
+) -> None:
+    folder = await _project(core, tmp_path)
+    path = str(folder)
+    data = json.loads(
+        (await call(client, "datos_para_memoria", project_path=path)).splitlines()[-1]
+    )
+    useful = f"{data['areas_m2']['util']:.2f}".replace(".", ",")
+    # 55,25 m² es el área a ejes del caso, no la útil del modelo: también se rechaza.
+    invented = (
+        f"Apartamento de 2 habitaciones y {useful} m² útiles (55,25 m² a ejes), construido en "
+        "2026 con un costo de 180 millones."
+    )
+    rejected = await fails(client, "generar_ficha_pdf", project_path=path, memoria_texto=invented)
+    assert "No se generó la ficha: 3 número(s) de la memoria no están en datos_para_memoria" in (
+        rejected
+    )
+    assert "«55,25» en:" in rejected and "«2026» en:" in rejected and "«180» en:" in rejected
+    pdf = folder / "salidas" / "ficha_casa.pdf"
+    assert not pdf.exists()
+
+    memory = f"Apartamento de 2 habitaciones.\n\nSu área útil es de {useful} m²."
+    answer = await call(client, "generar_ficha_pdf", project_path=path, memoria_texto=memory)
+    assert answer.startswith(f"Ficha generada en {pdf}: ")
+    assert "Los 2 números de la memoria están en datos_para_memoria." in answer
+    assert pdf.read_bytes().startswith(b"%PDF")
 
 
 async def test_a_folder_without_a_project(client: Client, tmp_path: Path) -> None:

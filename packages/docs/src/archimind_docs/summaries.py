@@ -8,6 +8,7 @@ from archimind_core.quantities import PRELIMINARY_LABEL
 
 from archimind_docs.budget import Budget
 from archimind_docs.program import ProgramCheck
+from archimind_docs.verify import Unverified
 from archimind_docs.zoning import Coefficients
 
 MAX_ROWS = 15
@@ -106,4 +107,24 @@ def budget(project_name: str, result: Budget, path: Path) -> str:
         lines.append(f"SIN PRECIO, no suman al total ({len(unpriced)}):")
         lines += _limit(f"  {line.item.key}: {line.missing}" for line in unpriced)
     lines.append(f"Detalle en {path}.")
+    return "\n".join(lines)
+
+
+def unverified(items: list[Unverified]) -> str:
+    lines = [
+        f"No se generó la ficha: {len(items)} número(s) de la memoria no están en "
+        "datos_para_memoria. Corrígelos con las cifras de datos_para_memoria (o quítalos) y "
+        "vuelve a intentarlo; nunca los inventes:"
+    ]
+    lines += _limit(f"  «{item.text}» en: …{item.context}…" for item in items)
+    return "\n".join(lines)
+
+
+def sheet(path: Path, numbers: int, preliminary: bool) -> str:
+    lines = [
+        f"Ficha generada en {path}: datos del proyecto, cuadro de áreas, planta y memoria.",
+        f"Los {numbers} números de la memoria están en datos_para_memoria.",
+    ]
+    if preliminary:
+        lines.append(f"Cada página lleva la marca «{PRELIMINARY_LABEL}».")
     return "\n".join(lines)

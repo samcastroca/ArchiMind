@@ -34,6 +34,8 @@ from archimind_docs.errors import DocsError
 from archimind_docs.items import model_items
 from archimind_docs.memory import project_memory
 from archimind_docs.program import check_program
+from archimind_docs.sheet import build_sheet
+from archimind_docs.verify import NUMBER, unverified_numbers
 from archimind_docs.zoning import coefficients
 
 INSTRUCTIONS = """\
@@ -41,7 +43,8 @@ archimind-docs produce los documentos de un proyecto de ArchiMind con cifras que
 modelo y de la base de datos del usuario (materiales, precios unitarios APU y programa de
 áreas), nunca de ti.
 Memoria: datos_para_memoria da las cifras verificadas; redacta solo con ellas y pasa el texto a
-generar_ficha_pdf, que rechaza cualquier número que no esté en esas cifras.
+generar_ficha_pdf, que rechaza cualquier número que no esté en esas cifras y, si todo cuadra,
+genera la ficha PDF del proyecto.
 Además: presupuesto_preliminar (cantidades del modelo × APU), verificar_programa_areas y
 calcular_cos_cus (el área del lote la da el usuario).
 Los datos de la base los carga el usuario con el comando archimind-docs-importar."""
@@ -162,6 +165,37 @@ def calcular_cos_cus(
     del lote al usuario si no la dio. No modifica nada."""
     _, project = _use(project_path)
     return summaries.coefficients(coefficients(project, area_lote))
+
+
+@_tool(WRITES_OUTPUT)
+def generar_ficha_pdf(
+    project_path: ProjectPath,
+    memoria_texto: Annotated[
+        str,
+        Field(
+            description="La memoria descriptiva redactada con las cifras de datos_para_memoria; "
+            "los párrafos se separan con una línea en blanco.",
+            min_length=1,
+        ),
+    ],
+) -> str:
+    """Genera salidas/ficha_<proyecto>.pdf: datos del proyecto, cuadro de áreas, planta y la
+    memoria descriptiva. Antes comprueba que cada número de memoria_texto esté en
+    datos_para_memoria (redondeado a los decimales escritos): si alguno no está, no genera
+    nada y lista cada número con su contexto para corregirlo. La regla es estricta: años,
+    fechas, escalas o cualquier cifra que no esté en esos datos se rechazan, así que no los
+    escribas con dígitos. Úsala después de datos_para_memoria."""
+    folder, project = _use(project_path)
+    with _database() as connection:
+        data = project_memory(project, connection)
+    rejected = unverified_numbers(memoria_texto, data)
+    if rejected:
+        raise DocsError(summaries.unverified(rejected))
+    path = build_sheet(
+        project, data, memoria_texto, outputs_dir(folder) / f"ficha_{folder.name}.pdf"
+    )
+    numbers = len(NUMBER.findall(memoria_texto))
+    return summaries.sheet(path, numbers, not project.scale_confirmed)
 
 
 def main() -> None:

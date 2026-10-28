@@ -737,6 +737,14 @@ descripciones explican el esquema con un ejemplo («ventana corrediza de alumini
     Responde lo que cumple, lo que no llega (con el faltante), lo que falta y lo que sobra.
   - `calcular_cos_cus(area_lote)`: COS = huella construida del nivel más bajo / lote; CUS =
     área construida de todos los niveles / lote.
+  - `generar_ficha_pdf(memoria_texto)`: primero busca cada número de la memoria en
+    `datos_para_memoria`. Vale si alguna cifra, redondeada a los decimales escritos, da ese
+    número; se aceptan coma o punto decimal y separadores de miles, y también los números de los
+    textos de los datos, como nombres y normas. Si alguno no está (un año, una escala, un costo
+    inventado), no genera nada y lista cada uno con su contexto. Si todo cuadra, escribe
+    `salidas/ficha_<proyecto>.pdf` con reportlab: datos del proyecto, cuadro de áreas, planta
+    (`render_model` de core) y memoria, en DejaVu Sans (la fuente de matplotlib) y con la marca
+    PRELIMINAR en cada página si la escala no está confirmada.
 
 Siguen pendientes:
 - los muros curvos y varios niveles por plano;
