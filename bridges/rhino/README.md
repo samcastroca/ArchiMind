@@ -8,7 +8,8 @@ Lleva el modelo de un proyecto de ArchiMind a Rhino 8 y lee lo que se editó all
   `read_tagged_objects`, `save_as` y `hidden_lines` (líneas ocultas con HiddenLineDrawing, en
   memoria). Todo corre en el hilo de la interfaz de Rhino.
 - `mcp/`: el servidor MCP `rhino-bridge` (paquete `archimind-rhino-bridge`) con `estado_rhino`,
-  `abrir_en_rhino`, `leer_cambios`, `guardar_3dm` y `make2d_axonometria`. Lo que deja
+  `abrir_en_rhino`, `leer_cambios`, `guardar_3dm`, `make2d_axonometria` y `corte` (por el
+  nombre de un corte de `proponer_cortes` de core, o por dos puntos). Lo que deja
   `leer_cambios` lo guarda en el modelo `aplicar_borrador` de `archimind-core`. Los grosores y
   tipos de línea de los dibujos están en `mcp/config/estilos.yaml`.
 

@@ -9,7 +9,15 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import rhino3dm
-from archimind_schema import LENGTH_TOL, MODEL_FILENAME, EditsDraft, Project
+from archimind_schema import (
+    CUTS_FILENAME,
+    LENGTH_TOL,
+    MODEL_FILENAME,
+    CutLine,
+    CutProposals,
+    EditsDraft,
+    Project,
+)
 from pydantic import ValidationError
 
 OUTPUTS_DIR = "salidas"
@@ -70,6 +78,28 @@ def applied_draft(folder: Path) -> EditsDraft | None:
         return EditsDraft.model_validate_json(path.read_text(encoding="utf-8"))
     except (OSError, ValidationError):
         return None
+
+
+def proposed_cut(model: ProjectModel, name: str) -> tuple[CutLine, bool]:
+    """El corte con ese nombre de `salidas/cortes.json` y si el modelo cambió desde que se
+    propuso."""
+    path = model.folder / OUTPUTS_DIR / CUTS_FILENAME
+    try:
+        proposals = CutProposals.model_validate_json(path.read_text(encoding="utf-8"))
+    except OSError as exc:
+        raise ProjectError(
+            f"No hay cortes propuestos para {model.folder.name}: usa proponer_cortes de "
+            "archimind-core, o da los dos puntos de la línea de corte."
+        ) from exc
+    except ValidationError as exc:
+        raise ProjectError(
+            f"{path} no es válido: vuelve a usar proponer_cortes de archimind-core."
+        ) from exc
+    for cut in proposals.cuts:
+        if cut.name == name.strip().lower():
+            return cut, proposals.base_sha256 != model.sha256
+    names = ", ".join(cut.name for cut in proposals.cuts) or "ninguno"
+    raise ProjectError(f"No hay un corte propuesto llamado «{name}»; los propuestos son: {names}.")
 
 
 def create_empty_3dm(path: Path) -> Path:

@@ -26,7 +26,7 @@ interfaz, las unidades— se comprueba con estos pasos. Hace falta Rhino 8 para 
    ```
 
 3. Cerrar Claude Desktop del todo y volver a abrirlo. En **Configuración → Desarrollador**,
-   `rhino-bridge` debe estar en marcha, con 5 herramientas. El registro es
+   `rhino-bridge` debe estar en marcha, con 6 herramientas. El registro es
    `mcp-server-rhino-bridge.log`.
 
 ## Sin Rhino
@@ -204,6 +204,54 @@ creados. Rhino debe estar abierto con el puente iniciado; da igual qué document
 8. En Rhino, el documento abierto no cambió: no hay objetos nuevos, el título no tiene el
    asterisco de cambios y `Undo` no tiene nada de ArchiMind.
 
+## Cortes con apto_2hab y en_l
+
+Con los proyectos de la sección anterior (con alturas).
+
+1. «Propón cortes para C:\Temp\axo-apto» (core): dos cortes,
+   - «longitudinal (corte A-A): Paralelo al lado largo; cruza Habitación 2, Sala-comedor-cocina;
+     corta 1 puerta y 1 ventana.»
+   - «transversal (corte B-B): Paralelo al lado corto; cruza Sala-comedor-cocina, Baño; corta 1
+     puerta y 1 ventana.»
+
+   y «Guardados en C:\Temp\axo-apto\salidas\cortes.json». Sin escalera: ningún espacio se llama
+   así.
+2. «Dibuja el corte longitudinal mirando hacia la izquierda» (rhino-bridge): «Corte A-A mirando
+   hacia la izquierda: DXF en C:\Temp\axo-apto\salidas\corte-longitudinal.dxf…», con «CORTADO N
+   (0.50 mm), PROYECTADO M (0.18 mm)» y «Profundidad: 3.35 m (hasta el fondo del edificio)».
+3. Abrir el DXF en Rhino o LibreCAD. El corte va de oeste a este a y = 3.25 m y mira al norte:
+   - **en CORTADO** (0.50 mm en las propiedades de la capa): los muros oeste y este, cada uno con
+     su espesor (0.20 m), el tabique de 0.12 m con la puerta de la habitación 2 abierta (solo el
+     dintel cortado arriba), la ventana del muro este (dintel arriba y antepecho abajo) y la
+     losa de 0.15 m de punta a punta bajo todo;
+   - **en PROYECTADO** (0.18 mm): detrás, la fachada norte con sus tres ventanas, el tabique
+     entre las habitaciones y los del baño;
+   - **nada** de lo que queda al sur de la línea: ni la puerta de entrada ni la ventana de la
+     habitación 2. Si aparecen, o si en lugar de lo de detrás aparece lo de delante, el lado del
+     recorte está invertido: anotarlo (es el signo de `cut_planes` en
+     `mcp/src/archimind_rhino_bridge/views.py`);
+   - y = 0 es la cara inferior de la losa: los muros llegan a 0.15 + 2.60 = 2.75 m.
+4. «El mismo corte mirando hacia la derecha»: se ve la fachada sur desde dentro, con la puerta de
+   entrada y la ventana de la habitación 2, y el dibujo queda como en un espejo.
+5. «Con 1 m de profundidad»: «Profundidad: 1.00 m.»; de lo que hay detrás solo sale lo que está a
+   menos de 1 m de la línea (el tabique en y = 3.60 m) y no la fachada norte.
+6. «Dibuja el corte transversal mirando hacia la derecha»: B-B, por el baño, con su puerta y su
+   ventana alta cortadas.
+7. Abrir `corte-longitudinal.svg` en el navegador: las líneas cortadas se ven claramente más
+   gruesas que las proyectadas.
+8. Con C:\Temp\axo-l: «Propón cortes»: el longitudinal cruza Estar y Dormitorio y el transversal
+   solo el Estar. Dibujar los dos. Después, un corte **por dos puntos** que atraviese el chaflán:
+   «Dibuja un corte de (2, 8) a (8, 2) mirando hacia la izquierda». Debe responder «Corte por
+   dos puntos…» y escribir `salidas\corte.dxf`. En CORTADO, el muro diagonal se corta de frente
+   con su puerta.
+9. «Dibuja el corte escalera»: «No hay un corte propuesto llamado «escalera»; los propuestos son:
+   longitudinal, transversal».
+10. Escalera: renombrar un espacio de C:\Temp\axo-l a «Escalera» (abrir_en_rhino, en Rhino
+    Nombre `Escalera` en las Propiedades de su superficie, leer_cambios y aplicar_borrador) y
+    pedir los cortes otra vez: aparece «escalera (corte C-C):
+    Por Escalera; …», y se puede dibujar por su nombre.
+11. En Rhino, el documento sigue sin cambios.
+
 ## Errores
 
 - **Documento ajeno con cambios**: `New` en Rhino, dibujar una línea sin guardar y pedir «Abre el
@@ -241,4 +289,7 @@ Lo que no se pudo comprobar sin Rhino, y qué paso lo confirma:
   `Visibility.Hidden` (Axonometrías, paso 3);
 - que `Extrusion.AddInnerProfile` abre los huecos de las losas (Axonometrías, paso 7: la losa en
   L sin rellenos raros);
-- que el cálculo no agrega nada al documento (Axonometrías, paso 8).
+- que el cálculo no agrega nada al documento (Axonometrías, paso 8; Cortes, paso 11);
+- que `AddClippingPlane` quita el lado hacia el que apunta la normal, como dijo McNeel, y que el
+  segundo plano limita la profundidad (Cortes, pasos 3 y 5);
+- que lo cortado llega con `SilhouetteType.SectionCut` y va a CORTADO (Cortes, paso 3).

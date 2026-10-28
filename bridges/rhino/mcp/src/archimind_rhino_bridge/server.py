@@ -14,8 +14,8 @@ from pathlib import Path
 from typing import Annotated, Any, ParamSpec
 
 from archimind_core import BuildRulesError, ExportError, HeightsMissing, load_build_rules
-from archimind_core import summaries as core_summaries
-from archimind_schema import LENGTH_TOL, Project
+from archimind_core.summaries import heights_missing
+from archimind_schema import LENGTH_TOL, CutLine, Point2D, Project
 from mcp.server import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from mcp.types import ToolAnnotations
@@ -33,6 +33,7 @@ from archimind_rhino_bridge.files import (
     draft_file,
     load_model,
     outputs_dir,
+    proposed_cut,
     rhino_file,
     write_draft,
 )
@@ -41,7 +42,11 @@ from archimind_rhino_bridge.styles import StylesError, load_styles
 from archimind_rhino_bridge.views import (
     VIEW_NAMES,
     IsoView,
+    Side,
     ViewError,
+    cut_camera,
+    cut_planes,
+    default_depth,
     drawing_pieces,
     iso_camera,
     solids_payload,
@@ -57,7 +62,8 @@ nuevo y lo borrado) → aplicar_borrador de archimind-core lo guarda en el model
 recarga las capas. guardar_3dm cuando quiera conservar el archivo. estado_rhino dice si Rhino
 responde y si el documento es del proyecto.
 Dibujos de líneas ocultas del modelo, en DXF y SVG: make2d_axonometria (isométricas, también
-explotadas).
+explotadas) y corte (con la línea que propone proponer_cortes de archimind-core, por su nombre,
+o con dos puntos que dé el usuario).
 El modelo lo escribe solo archimind-core; este servidor nunca lo modifica. Las medidas salen de
 estas herramientas; no las calcules."""
 
@@ -297,7 +303,7 @@ def make2d_axonometria(
     try:
         pieces = drawing_pieces(model.project, explotada, gap, thickness)
     except HeightsMissing as missing:
-        return core_summaries.heights_missing(missing.missing)
+        return heights_missing(missing.missing)
     result = bridge.call(
         "hidden_lines",
         solids=solids_payload(pieces),
@@ -318,6 +324,87 @@ def make2d_axonometria(
     title = f"Axonometría {VIEW_NAMES[vista]}"
     notes = [f"Explotada: {gap:.2f} m entre cada losa y sus muros y entre niveles."]
     return summaries.drawing(title, files, styles, notes if explotada else [])
+
+
+@_tool(WRITES_OUTPUT)
+def corte(
+    project_path: ProjectPath,
+    linea_de_corte: Annotated[
+        str | tuple[Point2D, Point2D],
+        Field(
+            description='El nombre de un corte de proponer_cortes (p. ej. "longitudinal"), o dos '
+            "puntos [[x, y], [x, y]] en metros solo si el usuario los da."
+        ),
+    ],
+    mirando: Annotated[
+        Side,
+        Field(description="Hacia qué lado de la línea, recorrida del primer punto al segundo."),
+    ],
+    profundidad: Annotated[
+        float | None,
+        Field(
+            description="Hasta dónde se dibuja lo que hay detrás del corte, en metros; si no, "
+            "hasta el fondo del edificio.",
+            gt=0,
+        ),
+    ] = None,
+    espesor_losa: SlabThickness = None,
+) -> str:
+    """Dibuja un corte del modelo con HiddenLineDrawing de Rhino: lo que corta la línea (muros y
+    losa) en la capa CORTADO y lo que se ve detrás, hasta la profundidad, en PROYECTADO, con los
+    grosores de estilos.yaml (0.50 y 0.18 mm). Escribe salidas/corte-<nombre>.dxf y .svg
+    (corte.dxf con puntos). Lo habitual: proponer_cortes de archimind-core, el usuario elige un
+    nombre y se pasa en linea_de_corte; si no hay propuesta o el nombre no existe, el error lo
+    dice. Hace falta Rhino abierto con el puente iniciado (no usa ni cambia su documento), la
+    escala confirmada y las alturas: si faltan, no dibuja nada y dice cuáles; pídelas al
+    usuario y aplícalas con definir_alturas de archimind-core, nunca las supongas."""
+    model = load_model(project_path)
+    styles = load_styles()
+    thickness = espesor_losa or load_build_rules().slab_thickness_m
+    cut, stale = _cut_line(model, linea_de_corte)
+    try:
+        pieces = drawing_pieces(model.project, False, 0.0, thickness)
+    except HeightsMissing as missing:
+        return heights_missing(missing.missing)
+    depth = profundidad or default_depth(pieces, cut.start, cut.end, mirando)
+    result = bridge.call(
+        "hidden_lines",
+        solids=solids_payload(pieces),
+        camera=cut_camera(cut.start, cut.end, mirando, pieces),
+        clips=cut_planes(cut.start, cut.end, mirando, depth),
+        include_hidden=False,
+        tolerance=LENGTH_TOL,
+    )
+    name = "corte" if cut.name == "manual" else f"corte-{cut.name}"
+    folder = outputs_dir(model.folder)
+    files = write_drawing(
+        parse_segments(result),
+        {"section": "CORTADO", "visible": "PROYECTADO"},
+        styles,
+        folder / f"{name}.dxf",
+        folder / f"{name}.svg",
+    )
+    source = " (hasta el fondo del edificio)" if profundidad is None else ""
+    notes = [f"Profundidad: {depth:.2f} m{source}."]
+    if "CORTADO" not in files.counts:
+        notes.append("La línea no corta ningún muro ni losa: solo hay vista proyectada.")
+    if stale:
+        notes.append(
+            "El modelo cambió desde proponer_cortes: la línea puede no ser la mejor; vuelve a "
+            "proponerlos si el usuario quiere."
+        )
+    title = f"Corte {cut.label} mirando hacia la {mirando}"
+    return summaries.drawing(title, files, styles, notes)
+
+
+def _cut_line(model: ProjectModel, line: str | tuple[Point2D, Point2D]) -> tuple[CutLine, bool]:
+    """El corte propuesto con ese nombre, o uno con los dos puntos dados."""
+    if isinstance(line, str):
+        return proposed_cut(model, line)
+    try:
+        return CutLine(name="manual", label="por dos puntos", start=line[0], end=line[1]), False
+    except ValidationError as exc:
+        raise ViewError("Los dos puntos de la línea de corte deben ser distintos.") from exc
 
 
 def main() -> None:

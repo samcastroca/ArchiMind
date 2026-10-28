@@ -24,7 +24,18 @@ from mcp.types import TextContent
 
 pytestmark = pytest.mark.anyio
 
-TOOLS = {"estado_rhino", "abrir_en_rhino", "leer_cambios", "guardar_3dm", "make2d_axonometria"}
+TOOLS = {
+    "estado_rhino",
+    "abrir_en_rhino",
+    "leer_cambios",
+    "guardar_3dm",
+    "make2d_axonometria",
+    "corte",
+}
+# Los argumentos obligatorios de cada herramienta, además de project_path.
+REQUIRED: dict[str, dict[str, Any]] = {
+    "corte": {"linea_de_corte": [[-1, 3.25], [9.6, 3.25]], "mirando": "izquierda"}
+}
 MAX_LINES = 50
 TOKEN = "token-de-prueba"
 
@@ -126,7 +137,8 @@ async def test_without_rhino_every_tool_says_what_to_run(
     folder = await _project(core, tmp_path)
     await _with_heights(core, folder)
     for tool in TOOLS:
-        assert (await fails(client, tool, project_path=str(folder))).endswith(NOT_RUNNING)
+        arguments = {"project_path": str(folder), **REQUIRED.get(tool, {})}
+        assert (await fails(client, tool, **arguments)).endswith(NOT_RUNNING)
 
 
 async def test_a_folder_without_a_project(client: Client, tmp_path: Path) -> None:
@@ -315,3 +327,83 @@ async def test_a_drawing_needs_a_confirmed_scale(
     save_project(project, folder)
     message = await fails(client, "make2d_axonometria", project_path=str(folder))
     assert "confirmar_escala" in message
+
+
+async def test_a_proposed_cut_is_drawn_by_name(
+    client: Client, core: Client, tmp_path: Path, rhino: FakeDocument
+) -> None:
+    folder = await _project(core, tmp_path)
+    path = str(folder)
+    await _with_heights(core, folder)
+    missing = await fails(client, "corte", project_path=path, linea_de_corte="longitudinal")
+    assert "Field required" in missing or "mirando" in missing
+    none_yet = await fails(
+        client, "corte", project_path=path, linea_de_corte="longitudinal", mirando="izquierda"
+    )
+    assert "No hay cortes propuestos para casa: usa proponer_cortes" in none_yet
+
+    await call(core, "proponer_cortes", project_path=path)
+    unknown = await fails(
+        client, "corte", project_path=path, linea_de_corte="escalera", mirando="izquierda"
+    )
+    assert "los propuestos son: longitudinal, transversal" in unknown
+
+    drawn = await call(
+        client, "corte", project_path=path, linea_de_corte="Longitudinal", mirando="izquierda"
+    )
+    dxf = folder / "salidas" / "corte-longitudinal.dxf"
+    assert drawn.startswith(f"Corte A-A mirando hacia la izquierda: DXF en {dxf} (metros)")
+    assert re.search(r"CORTADO \d+ \(0.50 mm\), PROYECTADO \d+ \(0.18 mm\)", drawn)
+    assert "Profundidad: 3.35 m (hasta el fondo del edificio)." in drawn
+    layers = ezdxf.readfile(dxf).layers
+    assert (layers.get("CORTADO").dxf.lineweight, layers.get("PROYECTADO").dxf.lineweight) == (
+        50,
+        18,
+    )
+    assert dxf.with_suffix(".svg").is_file()
+    assert rhino.objects == [] and not rhino.modified
+
+    # Si el modelo cambia, el corte propuesto sigue sirviendo, con un aviso.
+    level_id = load_project(folder).levels[0].id
+    await call(core, "definir_alturas", project_path=path, por_nivel={level_id: 2.8})
+    stale = await call(
+        client, "corte", project_path=path, linea_de_corte="transversal", mirando="derecha"
+    )
+    assert "Corte B-B mirando hacia la derecha" in stale
+    assert "El modelo cambió desde proponer_cortes" in stale
+
+
+async def test_a_cut_by_two_points_with_its_depth(
+    client: Client, core: Client, tmp_path: Path, rhino: FakeDocument
+) -> None:
+    folder = await _project(core, tmp_path)
+    path = str(folder)
+    await _with_heights(core, folder)
+    line = [[-1, 3.25], [9.6, 3.25]]
+    drawn = await call(
+        client,
+        "corte",
+        project_path=path,
+        linea_de_corte=line,
+        mirando="derecha",
+        profundidad=1.5,
+    )
+    assert "Corte por dos puntos mirando hacia la derecha" in drawn
+    assert "salidas" in drawn and "corte.dxf" in drawn
+    assert "Profundidad: 1.50 m." in drawn
+    outside = await call(
+        client,
+        "corte",
+        project_path=path,
+        linea_de_corte=[[-1, 8], [9.6, 8]],
+        mirando="derecha",
+    )
+    assert "La línea no corta ningún muro ni losa" in outside
+    nothing = await fails(
+        client, "corte", project_path=path, linea_de_corte=[[-1, 8], [9.6, 8]], mirando="izquierda"
+    )
+    assert "no hay nada del edificio: prueba mirando hacia el otro lado" in nothing
+    same = await fails(
+        client, "corte", project_path=path, linea_de_corte=[[1, 1], [1, 1]], mirando="izquierda"
+    )
+    assert "deben ser distintos" in same

@@ -280,8 +280,8 @@ ajustar_bloque_a_vano → insertar_bloques_en_plano → asignar_bloques. Para pr
 pedidos de ejemplo en `tests/pedidos_bloques.yaml`, con la llamada y el resultado esperados, y
 los pasos en `packages/bloques/PRUEBA_MANUAL.md`. Rhino: con el puente iniciado en Rhino 8,
 abrir_en_rhino → editar en Rhino → leer_cambios → aplicar_borrador (core) → cuadro_de_areas →
-abrir_en_rhino para seguir editando; los pasos, en
-`bridges/rhino/PRUEBA_MANUAL.md`.
+abrir_en_rhino para seguir editando. Dibujos: make2d_axonometria, y proponer_cortes (core) → el
+usuario elige un nombre → corte. Los pasos, en `bridges/rhino/PRUEBA_MANUAL.md`.
 
 ## Estado
 
@@ -638,7 +638,7 @@ descripciones explican el esquema con un ejemplo («ventana corrediza de alumini
   huecos) y calcula con `HiddenLineDrawing` de RhinoCommon, en una vista paralela y con planos de
   recorte opcionales, los segmentos visibles, ocultos y cortados (`SilhouetteType.SectionCut`),
   como polilíneas 2D.
-- **Servidor MCP `rhino-bridge`** (paquete `archimind-rhino-bridge` en `bridges/rhino/mcp`), con 5
+- **Servidor MCP `rhino-bridge`** (paquete `archimind-rhino-bridge` en `bridges/rhino/mcp`), con 6
   herramientas que reciben `project_path`. Si el puente no responde: «Rhino no está abierto o el
   puente no está iniciado; ejecuta <ruta del script> desde el editor de scripts».
   - `estado_rhino`: Rhino, el documento, si es del proyecto y si el modelo cambió desde la carga.
@@ -667,6 +667,14 @@ descripciones explican el esquema con un ejemplo («ventana corrediza de alumini
     `separacion` sobre su losa (por defecto, 1 m de `estilos.yaml`). Escribe
     `salidas/axonometria-<vista>[-explotada].dxf` (metros) y `.svg` (1:50). Necesita la escala
     confirmada y las alturas: si faltan, no dibuja y responde cuáles, como `exportar_plano`.
+  - `corte(linea_de_corte, mirando, profundidad=None, espesor_losa=None)`: `linea_de_corte` es
+    el nombre de un corte de `proponer_cortes` (leído de `salidas/cortes.json`; avisa si el
+    modelo cambió desde la propuesta) o dos puntos en metros. Mira en horizontal hacia la
+    `izquierda` o la `derecha` del recorrido y recorta con dos planos: el de la línea y el del
+    fondo, a `profundidad` (por defecto, hasta el punto más lejano del edificio de ese lado). Lo
+    cortado va en la capa CORTADO (0.50 mm) y lo que se ve detrás en PROYECTADO (0.18 mm), en
+    `salidas/corte-<nombre>.dxf` y `.svg` (`corte.dxf` con puntos). El dibujo empieza en el
+    origen: y = 0 es la cara inferior de la losa.
 - **Estilos** en `bridges/rhino/mcp/config/estilos.yaml`: grosor (un lineweight estándar de
   DXF), color y tipo de línea de cada capa (VISIBLES 0.25 mm, OCULTAS 0.13 mm a trazos,
   CORTADO 0.50 mm y PROYECTADO 0.18 mm), la escala de los tipos de línea, la del SVG y la

@@ -94,4 +94,6 @@ def write_drawing(
     scale = 1000 / styles.svg_scale  # mm de papel por metro del dibujo
     text = backend.get_string(page, settings=layout.Settings(scale=scale, fit_page=False))
     svg_path.write_text(text, encoding="utf-8")
-    return DrawingFiles(dxf_path, svg_path, dict(Counter(layer for layer, _ in kept)))
+    found = Counter(layer for layer, _ in kept)
+    counts = {name: found[name] for name in dict.fromkeys(layers.values()) if found[name]}
+    return DrawingFiles(dxf_path, svg_path, counts)
