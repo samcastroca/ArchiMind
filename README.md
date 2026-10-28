@@ -1,13 +1,19 @@
 # ArchiMind
 
-ArchiMind convierte tus planos de AutoCAD (DXF o DWG) en un modelo que Claude entiende: muros,
-puertas, ventanas y espacios, con sus medidas. Desde ahí le pides, hablando normal, el cuadro de
-áreas, el plano limpio, la carpintería, un modelo 3D para Rhino, cortes, axonometrías o la
-memoria del proyecto en PDF.
+## Un servidor MCP para que Claude trabaje con planos de arquitectura
 
-Funciona dentro de **Claude Desktop**, la aplicación de escritorio de Claude: no tiene ventanas
-propias. Tú escribes en el chat; Claude usa las herramientas de ArchiMind y te muestra el
-resultado.
+> **Su propósito:** que Claude lea tus planos (DXF o DWG) y trabaje con ellos, pero que **cada
+> cifra del proyecto —áreas, medidas, cantidades, precios— la calcule ArchiMind a partir del
+> plano, y nunca la invente la IA.**
+
+**MCP** (*Model Context Protocol*) es el estándar con el que se le añaden herramientas a Claude.
+ArchiMind es un conjunto de servidores MCP: no tiene ventanas propias, se instala una vez y desde
+ahí aparece dentro de **Claude Desktop** como herramientas que Claude puede usar. Tú escribes en
+el chat, hablando normal; Claude llama a ArchiMind y te muestra lo que responde.
+
+Con él, Claude convierte tus planos en un modelo de muros, puertas, ventanas y espacios con sus
+medidas, y a partir de ahí te da el cuadro de áreas, el plano limpio, la carpintería, un modelo
+3D para Rhino, cortes, axonometrías o la memoria del proyecto en PDF.
 
 | Tu plano (DXF) | Lo que entiende ArchiMind |
 |---|---|
