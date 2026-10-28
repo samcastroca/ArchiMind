@@ -54,12 +54,22 @@ no comercial.
   paquete se llama `archimind-core`, no `core`). El puente con Rhino:
   `uv run --package archimind-rhino-bridge archimind-rhino-bridge`.
 - `uv run --package archimind-docs archimind-docs-importar <tabla> <archivo.csv>` — carga un CSV
-  en la base de datos del usuario (materiales, APU, programa de áreas, partidas).
+  en la base de datos del usuario (materiales, APU, programa de áreas, partidas). Para el
+  usuario lo envuelve `Importar datos.bat` (`scripts/importar_datos.ps1`).
+- `Instalar ArchiMind.bat` (`scripts/instalar.ps1` → `scripts/instalacion.py`) — la instalación
+  de doble clic: uv, Git, `uv sync` y la configuración de Claude Desktop. Solo esa configuración:
+  `uv run python scripts/instalacion.py --uv <ruta de uv.exe>`. Un servidor nuevo, o uno que
+  arranca distinto, se añade a `SERVERS` de `instalacion.py`. Los `.ps1` van en UTF-8 con BOM
+  (PowerShell 5.1); una prueba lo exige.
 
 ## Forma de trabajo
 - Plan antes de cambios grandes. Cambios pequeños, un commit por tarea.
-- README al día: si la tarea añade o quita una capacidad, cambia el contrato de `schema` o los
-  comandos, ese mismo commit actualiza la sección «Estado» de `README.md`.
+- Documentación al día: si la tarea añade o quita una capacidad, cambia el contrato de `schema`
+  o los comandos, ese mismo commit actualiza la sección «Estado» de `docs/referencia-tecnica.md`;
+  si además cambia lo que el usuario pide o ve, también `docs/guia-de-uso.md` (o `docs/rhino.md`)
+  y, si cambia la instalación, `README.md` y `docs/instalacion-manual.md`. El README y las guías
+  son para personas no técnicas: frases de ejemplo en su lenguaje y respuestas reales de
+  ArchiMind.
 - APIs de ezdxf, rhino3dm, RhinoCommon, AutoCAD e Illustrator: siempre contra su documentación.
   Si hay duda, se dice explícitamente.
 - Si una tarea requiere un programa que no se puede ejecutar aquí (Rhino, AutoCAD, Illustrator),
