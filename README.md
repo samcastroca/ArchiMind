@@ -33,15 +33,14 @@ Lo explica todo, paso a paso y con ejemplos, la **[guía de uso](docs/guia-de-us
 
 - Un equipo con **Windows 10 u 11** y conexión a internet.
 - **Claude Desktop** con tu cuenta de Claude.
-- Acceso a este repositorio en GitHub: es privado, hay que pedirle la invitación al dueño.
 - Opcional: **Rhino 8**, para editar el modelo en 3D y dibujar axonometrías y cortes; **ODA File
   Converter**, solo si vas a abrir o entregar planos en DWG (con DXF no hace falta).
 
 ## Instalación (unos 10 minutos, una sola vez)
 
 1. **Instala Claude Desktop** desde <https://claude.ai/download>, ábrelo y entra con tu cuenta.
-2. **Descarga ArchiMind**: en la página de este repositorio en GitHub, botón verde **Code** →
-   **Download ZIP**. Abre el ZIP (queda en Descargas), pulsa **Extraer todo** y elige una carpeta
+2. **Descarga ArchiMind**: en <https://github.com/samcastroca/ArchiMind> (no hace falta cuenta
+   de GitHub), botón verde **Code** → **Download ZIP**. Abre el ZIP (queda en Descargas), pulsa **Extraer todo** y elige una carpeta
    fácil, por ejemplo `C:\ArchiMind`.
 3. **Haz doble clic en `Instalar ArchiMind`**, dentro de la carpeta extraída (junto a este
    `README`). Se abre una ventana negra que instala lo que falte y conecta ArchiMind con Claude

@@ -62,7 +62,7 @@ Cerrar PowerShell, abrirlo de nuevo y comprobar con `uv --version` (responde alg
 
 ### 4. Descargar ArchiMind
 
-En GitHub, botón verde **Code** → **Download ZIP**; **Extraer todo** en una carpeta fácil, por
+En <https://github.com/samcastroca/ArchiMind>, botón verde **Code** → **Download ZIP**; **Extraer todo** en una carpeta fácil, por
 ejemplo `C:\ArchiMind`. La carpeta buena es la que tiene `README.md` y `pyproject.toml` (a veces el
 ZIP crea una dentro de otra: `ArchiMind-main\ArchiMind-main`).
 
