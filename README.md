@@ -727,6 +727,11 @@ descripciones explican el esquema con un ejemplo («ventana corrediza de alumini
     áreas, metros de muro por espesor, vanos por medida, partidas y materiales asignados), para
     que Claude redacte la memoria sin inventar números. Lo guarda también en
     `salidas/datos_memoria.json`. Una altura de nivel sin confirmar sale como `null`.
+  - `presupuesto_preliminar`: cantidad de cada partida × precio de su APU, con la fecha y la
+    fuente de cada precio. Una partida sin cantidad, sin fila en `budget_items`, con un APU
+    que no está o en otra unidad (`m²` = `m2`, `und` = `un`…) queda SIN PRECIO con el motivo y
+    no suma: no se estima. Escribe `salidas/presupuesto_preliminar.csv` con el total de lo
+    que tiene precio.
   - `verificar_programa_areas`: cada fila de `area_program` toma un espacio con ese nombre, sin
     contar mayúsculas, tildes ni el número final; las exigencias mayores eligen primero.
     Responde lo que cumple, lo que no llega (con el faltante), lo que falta y lo que sobra.

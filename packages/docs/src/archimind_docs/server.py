@@ -22,8 +22,16 @@ from mcp.types import ToolAnnotations
 from pydantic import Field
 
 from archimind_docs import summaries
-from archimind_docs.database import DatabaseError, area_program, connect
+from archimind_docs.budget import export_budget_csv, preliminary_budget
+from archimind_docs.database import (
+    DatabaseError,
+    area_program,
+    budget_items,
+    connect,
+    unit_prices,
+)
 from archimind_docs.errors import DocsError
+from archimind_docs.items import model_items
 from archimind_docs.memory import project_memory
 from archimind_docs.program import check_program
 from archimind_docs.zoning import coefficients
@@ -34,7 +42,8 @@ modelo y de la base de datos del usuario (materiales, precios unitarios APU y pr
 áreas), nunca de ti.
 Memoria: datos_para_memoria da las cifras verificadas; redacta solo con ellas y pasa el texto a
 generar_ficha_pdf, que rechaza cualquier número que no esté en esas cifras.
-Además: verificar_programa_areas y calcular_cos_cus (el área del lote la da el usuario).
+Además: presupuesto_preliminar (cantidades del modelo × APU), verificar_programa_areas y
+calcular_cos_cus (el área del lote la da el usuario).
 Los datos de la base los carga el usuario con el comando archimind-docs-importar."""
 
 READS = ToolAnnotations(read_only_hint=True, open_world_hint=False)
@@ -103,6 +112,22 @@ def datos_para_memoria(project_path: ProjectPath) -> str:
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
     compact = json.dumps(data, ensure_ascii=False, separators=(",", ":"))
     return summaries.memory_saved(path, compact, not project.scale_confirmed)
+
+
+@_tool(WRITES_OUTPUT)
+def presupuesto_preliminar(project_path: ProjectPath) -> str:
+    """Presupuesto preliminar: cada partida del modelo (muros por espesor en m², puertas y
+    ventanas por medida, pisos por categoría) por el precio unitario del APU que le asigna la
+    base, con la fecha y la fuente de cada precio. Las partidas sin APU, con un APU en otra
+    unidad o sin cantidad quedan marcadas SIN PRECIO con el motivo y no suman: nunca estimes
+    su precio. Escribe salidas/presupuesto_preliminar.csv. Si faltan precios, el usuario los
+    carga con archimind-docs-importar (tablas unit_prices y budget_items)."""
+    folder, project = _use(project_path)
+    with _database() as connection:
+        rows, prices = budget_items(connection), unit_prices(connection)
+    result = preliminary_budget(model_items(project), rows, prices, project.scale_confirmed)
+    path = export_budget_csv(result, outputs_dir(folder) / "presupuesto_preliminar.csv")
+    return summaries.budget(project.name, result, path)
 
 
 @_tool(READS)

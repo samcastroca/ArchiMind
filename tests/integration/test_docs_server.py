@@ -22,7 +22,12 @@ from mcp.types import TextContent
 
 pytestmark = pytest.mark.anyio
 
-TOOLS = {"datos_para_memoria", "verificar_programa_areas", "calcular_cos_cus"}
+TOOLS = {
+    "datos_para_memoria",
+    "presupuesto_preliminar",
+    "verificar_programa_areas",
+    "calcular_cos_cus",
+}
 MAX_LINES = 50
 
 
@@ -125,6 +130,32 @@ async def test_memory_data(client: Client, core: Client, tmp_path: Path) -> None
     assert {"origen": "partida muro-0.20", "codigo": "M-01", "descripcion": "Bloque"}.items() <= (
         data["materiales"][0].items()
     )
+
+
+async def test_preliminary_budget(client: Client, core: Client, tmp_path: Path) -> None:
+    folder = await _project(core, tmp_path)
+    load(
+        tmp_path,
+        "unit_prices",
+        "codigo;descripcion;unidad;precio;fecha;fuente\n"
+        "A-PUERTA;Puerta entamborada;und;350;2026-09-01;Proveedor X\n"
+        "A-MURO;Muro de bloque;m²;85,5;2026-08-15;Lista agosto\n",
+    )
+    load(
+        tmp_path,
+        "budget_items",
+        "partida,codigo_apu,codigo_material\npuerta-0.90x2.10,A-PUERTA,\nmuro-0.20,A-MURO,\n",
+    )
+    answer = await call(client, "presupuesto_preliminar", project_path=str(folder))
+    assert answer.startswith("Presupuesto PRELIMINAR de «casa»: ")
+    assert "puerta-0.90x2.10: 1.00 un × 350.00 = 350.00 (A-PUERTA, 2026-09-01, Proveedor X)" in (
+        answer
+    )
+    assert "(A-MURO, 2026-08-15, Lista agosto)" in answer
+    assert "SIN PRECIO, no suman al total" in answer
+    assert "ventana-1.50x1.20: la partida no está en budget_items" in answer
+    path = folder / "salidas" / "presupuesto_preliminar.csv"
+    assert f"Detalle en {path}." in answer and path.is_file()
 
 
 async def test_area_program(client: Client, core: Client, tmp_path: Path) -> None:

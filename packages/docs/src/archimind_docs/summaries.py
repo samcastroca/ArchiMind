@@ -6,6 +6,7 @@ from pathlib import Path
 
 from archimind_core.quantities import PRELIMINARY_LABEL
 
+from archimind_docs.budget import Budget
 from archimind_docs.program import ProgramCheck
 from archimind_docs.zoning import Coefficients
 
@@ -82,3 +83,27 @@ def _limit(lines: Iterable[str]) -> list[str]:
     if len(items) <= MAX_ROWS:
         return items
     return [*items[: MAX_ROWS - 1], f"  … y {len(items) - MAX_ROWS + 1} más"]
+
+
+def budget(project_name: str, result: Budget, path: Path) -> str:
+    priced, unpriced = result.priced, result.unpriced
+    lines = [
+        f"Presupuesto PRELIMINAR de «{project_name}»: {result.total:.2f} en "
+        f"{len(priced)} de {len(result.lines)} partidas con precio (moneda de los APU).",
+    ]
+    if result.preliminary_scale:
+        lines.append(f"{PRELIMINARY_LABEL}: las cantidades también son preliminares.")
+    if priced:
+        lines.append("Con precio (cantidad × precio unitario = subtotal; APU, fecha, fuente):")
+        lines += _limit(
+            f"  {line.item.key}: {line.item.quantity or 0:.2f} {line.item.unit} × "
+            f"{line.apu.precio:.2f} = {line.subtotal or 0:.2f} "
+            f"({line.apu.codigo}, {line.apu.fecha.isoformat()}, {line.apu.fuente})"
+            for line in priced
+            if line.apu is not None
+        )
+    if unpriced:
+        lines.append(f"SIN PRECIO, no suman al total ({len(unpriced)}):")
+        lines += _limit(f"  {line.item.key}: {line.missing}" for line in unpriced)
+    lines.append(f"Detalle en {path}.")
+    return "\n".join(lines)
