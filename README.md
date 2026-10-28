@@ -290,7 +290,9 @@ Está implementado `packages/schema`, el contrato del que dependen los demás pa
 carpintería paramétrica con el suyo, y en `bridges/rhino` el puente con Rhino 8. `schema`:
 
 - **Modelo semántico** (Pydantic v2): proyecto, niveles, muros, vanos, espacios, bloques y
-  anotaciones, en metros. Pydantic comprueba la forma y los tipos.
+  anotaciones, en metros. Pydantic comprueba la forma y los tipos. Cada nivel tiene una altura
+  por defecto para sus muros sin altura propia, que no cuenta como medida hasta que se confirma
+  (`height_confirmed`, falso al importar).
 - **Bloques**: cada `Block` (`blq-`) guarda el nombre, el tipo (puerta o ventana), el ancho, el
   alto y los parámetros completos de su carpintería, con el perfil, para regenerarla aunque cambie
   el catálogo. Los vanos con la misma carpintería comparten bloque; cada vano guarda `block_id` y
@@ -351,6 +353,9 @@ repositorio del proyecto y responden con el hash de la versión:
   cada vista con su extensión; se repite con `vista` = el número de la planta.
 - `confirmar_escala(muro_id=None, longitud_real=None)`: sin argumentos confirma las unidades
   detectadas; con argumentos recalcula la escala.
+- `definir_alturas(por_nivel=None, por_espacio=None)`: las alturas que da el usuario. Por nivel,
+  confirma la altura del nivel; por espacio, la pone en los muros que lo delimitan (un muro entre
+  dos alturas toma la mayor, con aviso). Si un vano quedaría más alto que su muro, no aplica nada.
 - `validar_modelo` y `listar_modelo(que)`: `"espacios"` o `"vanos"` (con el bloque de cada vano).
 - `cuadro_de_areas`: con la escala confirmada, además escribe `salidas/cuadro_de_areas.csv`.
 - `comparar_versiones(version_a, version_b)`: hashes o referencias como `HEAD~1`.
@@ -449,6 +454,10 @@ La lógica de `core`:
     `packages/core/config/build_rules.yaml`, con los umbrales, y se declara en el aviso
     `valores_por_defecto`.
 
+- **Alturas**: `define_heights(project, by_level, by_space)` devuelve una copia con las alturas
+  aplicadas, o lanza `HeightsError` sin cambiar nada. Un muro delimita un espacio si comparten un
+  borde de más de 5 cm. `missing_heights(project)` lista, por nivel sin confirmar, los muros sin
+  altura propia.
 - **Escala**: `confirm_scale(project)` confirma las unidades con las que se leyó el plano.
   `confirm_scale(project, muro_id, longitud_real)` escala el modelo para que el eje de ese muro
   mida `longitud_real` metros, y también la confirma. `rescale(project, k)` multiplica lo

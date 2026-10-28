@@ -15,6 +15,7 @@ from archimind_core.blocks import BlocksAssignment
 from archimind_core.build import BuildResult
 from archimind_core.compare import VersionDiff, compare_versions
 from archimind_core.edits import EditsResult
+from archimind_core.heights import HeightsResult, MissingHeight, missing_heights
 from archimind_core.history import Version, recent_versions
 from archimind_core.inventory import LayerSummary
 from archimind_core.layer_roles import ROLE_NAMES, LayerProposal
@@ -276,6 +277,58 @@ def edits_applied(
     lines += _version_line(version)
     lines.append("El cuadro de áreas actualizado sale con cuadro_de_areas.")
     return _text(lines)
+
+
+def heights_defined(result: HeightsResult, version: str | None) -> str:
+    lines = []
+    if result.levels:
+        lines.append("Alturas confirmadas por nivel:")
+        lines += [f"  {level_id}: {h:.2f} m" for level_id, h in result.levels.items()]
+    if result.kept_walls:
+        lines.append(
+            f"Conservan su altura propia: {_ids(result.kept_walls)} (se cambia por_espacio o "
+            "editándolos en Rhino)."
+        )
+    if result.walls:
+        lines.append(f"{count(len(result.walls), 'muro')} con altura por espacio:")
+        lines += truncate([f"  {w}: {h:.2f} m" for w, h in sorted(result.walls.items())], 20)
+    if result.warnings:
+        lines.append("Avisos:")
+        lines += truncate([f"  {w}" for w in result.warnings], 8)
+    pending = missing_heights(result.project)
+    if pending:
+        lines += _missing_lines(pending)
+    return _text([*lines, *_version_line(version)])
+
+
+def heights_commit_message(result: HeightsResult) -> str:
+    parts = [f"{level_id} {h:.2f} m" for level_id, h in result.levels.items()]
+    if result.walls:
+        parts.append(f"{count(len(result.walls), 'muro')} por espacio")
+    return f"Define alturas: {', '.join(parts)}"
+
+
+def heights_missing(items: Sequence[MissingHeight]) -> str:
+    lines = ["No se construyó el 3D: faltan alturas y no se suponen."]
+    lines += _missing_lines(items)
+    lines.append(
+        "Pregunta las alturas al usuario y aplícalas con definir_alturas, p. ej. por_nivel="
+        f'{{"{items[0].level_id}": 2.60}} o por_espacio={{"esp-0001": 2.40}}.'
+    )
+    return _text(lines)
+
+
+def _missing_lines(items: Sequence[MissingHeight]) -> list[str]:
+    lines = ["Sin altura confirmada (muros sin altura propia en niveles sin confirmar):"]
+    lines += truncate(
+        [
+            f"  {m.level_id} «{m.level_name}» (por defecto {m.default_height:.2f} m, sin "
+            f"confirmar): {count(len(m.wall_ids), 'muro')}: {_ids(m.wall_ids, 8)}"
+            for m in items
+        ],
+        10,
+    )
+    return lines
 
 
 def areas(project: Project, table: AreaTable, csv_path: Path | None) -> str:

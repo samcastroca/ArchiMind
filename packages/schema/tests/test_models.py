@@ -43,6 +43,8 @@ def _project(**changes: Any) -> dict[str, Any]:
 def test_proyecto_valido() -> None:
     project = Project.model_validate(_project())
     assert wall_height(project, project.walls[0]) == 2.7
+    # Un modelo.json anterior a height_confirmed carga con la altura sin confirmar.
+    assert not project.levels[0].height_confirmed
 
 
 @pytest.mark.parametrize(

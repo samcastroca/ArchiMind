@@ -29,6 +29,7 @@ from archimind_core.edits import EditsError, apply_edits_draft
 from archimind_core.errors import BuildStageError
 from archimind_core.export_dwg import DwgVersion, export_dwg
 from archimind_core.export_dxf import ExportError, export_dxf
+from archimind_core.heights import HeightsError, define_heights
 from archimind_core.history import HistoryError, commit, load_version
 from archimind_core.inventory import layer_inventory
 from archimind_core.layer_roles import propose_mapping
@@ -53,8 +54,9 @@ INSTRUCTIONS = """\
 ArchiMind convierte planos arquitectónicos DXF/DWG en un modelo semántico (muros, vanos,
 espacios) guardado en la carpeta de cada proyecto y versionado con git.
 Flujo: abrir_proyecto → importar_plano → proponer_mapeo_capas → aplicar_mapeo (con la propuesta
-revisada) → confirmar_escala → consultas (listar_modelo, cuadro_de_areas, validar_modelo),
-exportar_plano (png, dxf o dwg) y comparar_versiones.
+revisada) → confirmar_escala → definir_alturas (las que dé el usuario) → consultas
+(listar_modelo, cuadro_de_areas, validar_modelo), exportar_plano (png, dxf o dwg) y
+comparar_versiones.
 La carpintería la propone archimind-bloques (insertar_bloques_en_plano) en un borrador; se guarda
 en el modelo con asignar_bloques.
 Lo editado en Rhino lo lee rhino-bridge (leer_cambios) en un borrador; se guarda en el modelo con
@@ -77,6 +79,7 @@ USER_ERRORS = (
     DrawingError,
     EditsError,
     ExportError,
+    HeightsError,
     HistoryError,
     LayerRulesError,
     MappingError,
@@ -262,6 +265,41 @@ def confirmar_escala(
     save_project(confirmation.project, folder)
     version = commit(folder, summaries.scale_commit_message(confirmation, muro_id))
     return f"{summaries.scale(confirmation, muro_id, units)}\nVersión {version}."
+
+
+@_tool(WRITES_MODEL)
+def definir_alturas(
+    project_path: ProjectPath,
+    por_nivel: Annotated[
+        dict[str, float] | None,
+        Field(
+            description=(
+                'Altura de piso a techo de cada nivel, {niv-…: m}, p. ej. {"niv-0001": 2.60}.'
+            )
+        ),
+    ] = None,
+    por_espacio: Annotated[
+        dict[str, float] | None,
+        Field(
+            description=(
+                "Altura de los muros que delimitan cada espacio, {esp-…: m}, p. ej. "
+                '{"esp-0003": 2.40}.'
+            )
+        ),
+    ] = None,
+) -> str:
+    """Define las alturas de los muros con las medidas que da el usuario; nunca las inventes.
+    Con por_nivel, confirma la altura del nivel, que vale para sus muros sin altura propia. Con
+    por_espacio, pone esa altura a los muros que delimitan el espacio; un muro entre dos espacios
+    con alturas distintas toma la mayor, con aviso. Al importar, la altura de cada nivel es un
+    valor por defecto sin confirmar: el 3D (exportar_plano con formato="3dm") la exige
+    confirmada. Si algún vano quedaría más alto que su muro, no aplica nada. Devuelve los muros
+    cambiados, los avisos, lo que aún falta y la versión."""
+    folder, project = _use(project_path)
+    result = define_heights(project, por_nivel, por_espacio)
+    save_project(result.project, folder)
+    version = commit(folder, summaries.heights_commit_message(result))
+    return summaries.heights_defined(result, version)
 
 
 @_tool(READS)

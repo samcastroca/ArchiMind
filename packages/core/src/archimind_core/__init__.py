@@ -20,6 +20,13 @@ from archimind_core.drawing import Drawing, DrawingError, read_drawing
 from archimind_core.errors import BuildStageError
 from archimind_core.export_dwg import DwgVersion, export_dwg
 from archimind_core.export_dxf import ExportError, export_dxf
+from archimind_core.heights import (
+    HeightsError,
+    HeightsResult,
+    MissingHeight,
+    define_heights,
+    missing_heights,
+)
 from archimind_core.history import (
     HistoryError,
     Version,
@@ -80,11 +87,14 @@ __all__ = [
     "DrawingUnits",
     "DwgVersion",
     "ExportError",
+    "HeightsError",
+    "HeightsResult",
     "HistoryError",
     "LayerProposal",
     "LayerRules",
     "LayerRulesError",
     "LayerSummary",
+    "MissingHeight",
     "MappingError",
     "OpenedProject",
     "OpeningCount",
@@ -110,6 +120,7 @@ __all__ = [
     "commit",
     "compare_versions",
     "confirm_scale",
+    "define_heights",
     "detect_units",
     "draw_model",
     "export_area_table_csv",
@@ -123,6 +134,7 @@ __all__ = [
     "load_existing",
     "load_rules",
     "load_version",
+    "missing_heights",
     "open_project",
     "opening_counts",
     "outputs_dir",

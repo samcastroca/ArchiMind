@@ -37,6 +37,9 @@ class Level(_Model):
     name: str
     elevation: float
     default_height: float = Field(gt=0)
+    # Al importar, default_height sale de build_rules.yaml: no es una medida del proyecto hasta
+    # que el usuario la confirma. Sin confirmar, no se construye nada en 3D con ella.
+    height_confirmed: bool = False
 
 
 class Wall(_Model):

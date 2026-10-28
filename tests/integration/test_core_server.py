@@ -38,6 +38,7 @@ TOOLS = {
     "proponer_mapeo_capas",
     "aplicar_mapeo",
     "confirmar_escala",
+    "definir_alturas",
     "validar_modelo",
     "listar_modelo",
     "cuadro_de_areas",
@@ -311,6 +312,27 @@ async def test_assigned_blocks_are_versioned_and_listed(client: Client, tmp_path
 
     again = await call(client, "asignar_bloques", project_path=path)
     assert "Sin cambios que versionar." in again
+
+
+async def test_heights_are_confirmed_and_versioned(client: Client, tmp_path: Path) -> None:
+    folder = await _built(client, tmp_path, "apto_2hab")
+    path = str(folder)
+    project = load_project(folder)
+    level_id = project.levels[0].id
+    bath = next(s.id for s in project.spaces if s.name == "Baño")
+
+    by_space = await call(client, "definir_alturas", project_path=path, por_espacio={bath: 2.3})
+    assert "4 muros con altura por espacio" in by_space
+    assert f"{level_id} «Planta baja» (por defecto 2.60 m, sin confirmar)" in by_space
+    by_level = await call(client, "definir_alturas", project_path=path, por_nivel={level_id: 2.5})
+    assert f"{level_id}: 2.50 m" in by_level and "Conservan su altura propia" in by_level
+    assert "Sin altura confirmada" not in by_level
+    assert recent_versions(folder)[0].message == f"Define alturas: {level_id} 2.50 m"
+    assert load_project(folder).levels[0].height_confirmed
+
+    assert "más altos que su muro" in await fails(
+        client, "definir_alturas", project_path=path, por_nivel={level_id: 1.5}
+    )
 
 
 # --- Errores ----------------------------------------------------------------------------
