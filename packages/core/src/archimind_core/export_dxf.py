@@ -1,8 +1,10 @@
 """Exportación del modelo a un DXF limpio, en metros.
 
 Los muros salen como el contorno de su material con los vanos recortados; los vanos, los
-espacios, sus nombres y sus áreas, cada uno en su capa. Los nombres de capa son los que el
-importador reconoce, así que el DXF exportado se puede volver a importar.
+espacios, sus nombres y sus áreas, cada uno en su capa. El DXF exportado se vuelve a importar
+como el mismo modelo con el mapeo A-MURO walls, A-PUERTA doors, A-VENTANA windows y A-TEXTO
+text (las demás capas, ignoradas). proponer_mapeo_capas no lo acierta solo: los rectángulos de
+vanos y espacios parecen caras de muro, y la geometría manda sobre el nombre.
 """
 
 from pathlib import Path
