@@ -62,9 +62,9 @@ AutoCAD dibuje los bloques donde corresponde.
 
 ## Preparación en Claude Desktop
 
-1. Configurar `archimind-core` y `archimind-bloques` como dice el README («Uso desde Claude
-   Desktop») y reiniciar Claude Desktop. En **Configuración → Desarrollador** los dos deben estar
-   en marcha.
+1. Conectar `archimind-core` y `archimind-bloques` con doble clic en `Instalar ArchiMind` (o a
+   mano, como dice la [instalación manual](../../docs/instalacion-manual.md)) y reiniciar Claude
+   Desktop. En **Configuración → Desarrollador** los dos deben estar en marcha.
 2. Pedirle a Claude, con una carpeta nueva (p. ej. `C:\ArchiMind\casa`): «abre el proyecto en
    C:\ArchiMind\casa, importa el plano `<repositorio>\tests\golden\apto_2hab\input.dxf`, aplica el
    mapeo que propongas y exporta el plano a DXF». Debe usar abrir_proyecto, importar_plano,

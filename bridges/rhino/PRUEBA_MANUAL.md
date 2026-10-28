@@ -7,8 +7,11 @@ interfaz, las unidades— se comprueba con estos pasos. Hace falta Rhino 8 para 
 ## Preparación
 
 1. En el repositorio: `uv sync`.
-2. En Claude Desktop, **Configuración → Desarrollador → Editar configuración**, y dentro de
-   `mcpServers` (junto a `archimind-core`, como explica el README) añadir:
+2. Conectar `rhino-bridge` con Claude Desktop. Con Rhino 8 instalado, doble clic en
+   `Instalar ArchiMind` lo añade solo (o `uv run python scripts\instalacion.py --uv <ruta de
+   uv.exe> --rhino`). A mano, en el archivo de configuración que lee Claude Desktop (ver la
+   [instalación manual](../../docs/instalacion-manual.md#6-conectar-archimind-con-claude-desktop))
+   y dentro de `mcpServers`, junto a `archimind-core`, añadir:
 
    ```json
    "rhino-bridge": {

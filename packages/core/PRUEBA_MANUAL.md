@@ -6,13 +6,13 @@ Claude Desktop. Estos pasos comprueban la integración real.
 ## Preparación
 
 1. En el repositorio: `uv sync`.
-2. En Claude Desktop, ir a **Configuración → Desarrollador → Editar configuración** y añadir
-   el bloque del README (sección «Uso desde Claude Desktop»), siguiendo las indicaciones de
-   dónde va en el archivo. En `--directory` va la ruta absoluta del repositorio, con las
-   barras invertidas dobles.
+2. Conectar los servidores con Claude Desktop: doble clic en `Instalar ArchiMind` (o
+   `uv run python scripts\instalacion.py --uv <ruta de uv.exe>`), o a mano como explica la
+   [instalación manual](../../docs/instalacion-manual.md#6-conectar-archimind-con-claude-desktop),
+   que dice en cuál de los dos archivos de configuración va.
 3. Cerrar Claude Desktop del todo (también desde la bandeja del sistema) y volver a abrirlo.
 4. En **Configuración → Desarrollador**, `archimind-core` debe aparecer en marcha, y en el menú
-   de herramientas del chat, con 13 herramientas. Si no aparece, desde esa misma pantalla se
+   de herramientas del chat, con 14 herramientas. Si no aparece, desde esa misma pantalla se
    abre la carpeta de registros: el archivo es `mcp-server-archimind-core.log`.
 
 ## Flujo

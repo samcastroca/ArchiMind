@@ -10,7 +10,10 @@ del usuario: en Windows, `%LOCALAPPDATA%\ArchiMind` (p. ej.
 `C:\Users\<usuario>\AppData\Local\ArchiMind`). La variable de entorno `ARCHIMIND_DATOS` da
 otra carpeta. Se crea vacía la primera vez que se usa.
 
-Los datos los carga el usuario desde CSV, con el comando:
+Los datos los carga el usuario desde CSV. Lo más fácil: doble clic en **Importar datos**, en la
+carpeta de ArchiMind (o soltar el CSV sobre él), elegir la tabla en el menú y arrastrar el
+archivo; la [guía de uso](../../docs/guia-de-uso.md#10-precios-materiales-y-programa-de-áreas)
+trae un ejemplo. Por debajo ejecuta el comando:
 
 ```
 uv run --package archimind-docs archimind-docs-importar <tabla> <archivo.csv>

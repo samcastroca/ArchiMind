@@ -2,6 +2,9 @@
 
 Lleva el modelo de un proyecto de ArchiMind a Rhino 8 y lee lo que se editó allí.
 
+Para usarlo, la guía es [docs/rhino.md](../../docs/rhino.md): cómo iniciar el puente, editar el
+modelo, axonometrías y cortes, con ejemplos. Aquí, cómo está hecho.
+
 - `plugin/archimind_bridge.py`: script para el editor de scripts de Rhino 8. Arranca un servidor
   HTTP en `127.0.0.1` (puerto y token en `~/.archimind/rhino_bridge.json`, que crea la primera
   vez) con seis operaciones fijas: `ping`, `open_file`, `load_model_layers`,
