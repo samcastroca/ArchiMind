@@ -19,7 +19,7 @@ from archimind_schema import (
     space_area,
 )
 from golden import load_expected
-from hypothesis import given, settings
+from hypothesis import example, given, settings
 from hypothesis import strategies as st
 
 SHA = "0" * 64
@@ -233,6 +233,7 @@ def test_a_missing_draft_says_how_to_make_it(tmp_path: Path) -> None:
 
 @settings(max_examples=25, deadline=None)
 @given(st.floats(-1.0, 1.0))
+@example(dy=0.001)  # un muro movido 1 mm también mueve los espacios
 def test_moving_the_partition_trades_area_between_the_rooms(dy: float) -> None:
     apto = _apto()
     wall = _partition(apto)

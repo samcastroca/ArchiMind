@@ -28,6 +28,9 @@ UNNAMED = "Espacio sin nombre"
 MIN_SHARED = 0.5
 # Rejilla a la que se ajusta el cerramiento para que las caras salgan sin restos numéricos.
 GRID = LENGTH_TOL / 100
+# Ruido numérico del recálculo (medido: ≈1e-6 m). Una cara más cerca que esto de su espacio es
+# el mismo contorno; un muro movido aunque sea 1 mm ya cambia el contorno.
+SAME_CONTOUR = LENGTH_TOL / 10
 
 
 def closed_walls(project: Project, material: BaseGeometry) -> BaseGeometry:
@@ -117,9 +120,10 @@ def recompute_spaces(project: Project, rules: BuildRules, edited: set[str]) -> l
 
     El material es la huella de los muros con las esquinas en L rellenas. Cada cara hereda ID,
     nombre y categoría del espacio actual con el que más área comparte (de mayor a menor
-    solape, uno por cara); si la cara coincide con su contorno, este se conserva. Las caras sin
-    espacio son espacios nuevos sin nombre; los espacios sin cara se quitan. `edited` son los
-    espacios cuyo contorno se acaba de editar a mano: si el recálculo lo cambia, se avisa.
+    solape, uno por cara); si la cara coincide con su contorno salvo ruido numérico
+    (`SAME_CONTOUR`), este se conserva. Las caras sin espacio son espacios nuevos sin nombre;
+    los espacios sin cara se quitan. `edited` son los espacios cuyo contorno se acaba de editar
+    a mano: si el recálculo lo cambia, se avisa.
     """
     warnings: list[Problem] = []
     unnamed = _last_unnamed(project.spaces)
@@ -168,7 +172,7 @@ def recompute_spaces(project: Project, rules: BuildRules, edited: set[str]) -> l
                         [space.id],
                     )
                 )
-            elif face.boundary.hausdorff_distance(shapes[claimed.id].boundary) <= LENGTH_TOL:
+            elif face.boundary.hausdorff_distance(shapes[claimed.id].boundary) <= SAME_CONTOUR:
                 space = claimed
             else:
                 space = claimed.model_copy(update={"polygon": _polygon(face)})
