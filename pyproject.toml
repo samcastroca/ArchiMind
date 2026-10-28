@@ -44,6 +44,7 @@ pythonpath = [
     "bridges/rhino/plugin",
     "bridges/rhino/mcp/tests",
     "tests/fixtures",
+    "scripts",
 ]
 
 [tool.ruff]

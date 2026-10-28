@@ -1,0 +1,3 @@
+# Los scripts de doble clic de Windows van con CRLF, también en el ZIP que se descarga de GitHub.
+*.bat text eol=crlf
+*.ps1 text eol=crlf

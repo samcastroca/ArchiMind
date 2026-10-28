@@ -21,3 +21,6 @@ data/
 
 # Renders de revisión, se regeneran con los scripts
 tests/output/
+
+# Registro del instalador (Instalar ArchiMind.bat)
+instalacion.log
