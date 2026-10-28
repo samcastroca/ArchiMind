@@ -23,7 +23,8 @@ las filas con el mismo código y conservan las demás; `area_program` se reempla
 Las plantillas vacías, con el encabezado que espera cada tabla, están en
 [`plantillas/`](plantillas). Los archivos van en UTF-8 (Excel: «CSV UTF-8»), separados por
 coma o por punto y coma. Los números admiten coma decimal y punto de miles (`1.234,56`); con
-coma como separador, un número con coma decimal va entre comillas.
+coma como separador, un número con coma decimal va entre comillas. Un solo punto con tres cifras
+y sin coma (`45.000`) puede ser 45 o 45 mil y se rechaza: para 45 mil, `45000` o `45.000,00`.
 
 | Tabla | Columnas |
 |---|---|

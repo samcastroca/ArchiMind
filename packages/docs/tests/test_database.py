@@ -83,6 +83,25 @@ def test_invalid_numbers_and_dates_are_reported(db: sqlite3.Connection, tmp_path
     assert [p.split(":")[0] for p in raised.value.problems] == ["Fila 2, precio", "Fila 3, fecha"]
 
 
+def test_a_dot_with_three_digits_is_ambiguous_and_rejected(
+    db: sqlite3.Connection, tmp_path: Path
+) -> None:
+    header = "codigo;descripcion;unidad;precio;fecha;fuente\n"
+    path = _csv(tmp_path, header + "A;Muro;m2;45.000;2026-09-01;Lista\n")
+    with pytest.raises(CsvImportError) as raised:
+        import_csv(db, "unit_prices", path)
+    (problem,) = raised.value.problems
+    assert problem.startswith("Fila 2, precio: «45.000» es ambiguo")
+    assert "si son 45000, escríbelo 45000 o 45.000,00; si son 45, escríbelo 45" in problem
+    assert unit_prices(db) == {}
+
+    rows = "A;Muro;m2;45.000,00;2026-09-01;Lista\nB;Muro;m2;45000;2026-09-01;Lista\n"
+    rows += "C;Muro;m2;1234.567;2026-09-01;Lista\nD;Muro;m2;45,000;2026-09-01;Lista\n"
+    assert import_csv(db, "unit_prices", _csv(tmp_path, header + rows)) == 4
+    prices = {code: price.precio for code, price in unit_prices(db).items()}
+    assert prices == {"A": 45000, "B": 45000, "C": pytest.approx(1234.567), "D": 45}
+
+
 def test_a_wrong_header_points_to_the_template(db: sqlite3.Connection, tmp_path: Path) -> None:
     path = _csv(tmp_path, "code,area\nA,1\n")
     with pytest.raises(CsvImportError, match="debe ser espacio, area_minima"):

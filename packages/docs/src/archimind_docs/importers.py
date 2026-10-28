@@ -2,12 +2,14 @@
 
 Los CSV son UTF-8 (con o sin BOM), separados por coma o por punto y coma, con los encabezados
 de su plantilla (`packages/docs/plantillas/`). Los números admiten coma decimal y punto de
-miles («1.234,56»). Una tabla con código se actualiza por código; el programa de áreas se
-reemplaza entero.
+miles («1.234,56»); un solo punto con tres cifras y sin coma («45.000») puede ser 45 o 45 mil y
+se rechaza. Una tabla con código se actualiza por código; el programa de áreas se reemplaza
+entero.
 """
 
 import argparse
 import csv
+import re
 import sqlite3
 import sys
 from pathlib import Path
@@ -18,6 +20,8 @@ from pydantic import ValidationError
 from archimind_docs.database import TABLES, DatabaseError, connect, database_path
 
 MAX_ERRORS = 20
+# Un punto y tres cifras, sin coma: «45.000» es 45 con punto decimal o 45 mil con punto de miles.
+AMBIGUOUS = re.compile(r"\d{1,3}\.\d{3}")
 
 
 class CsvImportError(DatabaseError):
@@ -61,6 +65,10 @@ def import_csv(connection: sqlite3.Connection, table_name: str, path: str | Path
         if not any((value or "").strip() for value in raw.values()):
             continue  # fila vacía
         values = {name: _value(table.row, name, raw.get(name)) for name in columns}
+        for name in columns:
+            text = (raw.get(name) or "").strip()
+            if _numeric(table.row, name) and AMBIGUOUS.fullmatch(text):
+                problems.append(f"Fila {number}, {name}: {_ambiguous(text)}.")
         try:
             rows.append(table.row.model_validate(values).model_dump(mode="json"))
         except ValidationError as exc:
@@ -84,9 +92,24 @@ def _value(row: type[Any], name: str, raw: str | None) -> Any:
     text = (raw or "").strip()
     if not text:
         return None
-    if row.model_fields[name].annotation is float and "," in text:
+    if _numeric(row, name) and "," in text:
         return text.replace(".", "").replace(",", ".")
     return text
+
+
+def _numeric(row: type[Any], name: str) -> bool:
+    return row.model_fields[name].annotation is float
+
+
+def _ambiguous(text: str) -> str:
+    """El motivo del rechazo de «45.000», con cómo escribir cada lectura sin ambigüedad."""
+    whole, fraction = text.split(".")
+    thousands = whole + fraction
+    decimal = f"{whole},{fraction.rstrip('0')}".rstrip(",")
+    return (
+        f"«{text}» es ambiguo: si son {thousands}, escríbelo {thousands} o {text},00; si son "
+        f"{decimal}, escríbelo {decimal}"
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
