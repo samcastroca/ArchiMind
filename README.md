@@ -683,7 +683,19 @@ descripciones explican el esquema con un ejemplo («ventana corrediza de alumini
   del servidor HTTP real del script; lo que depende de RhinoCommon está en
   `bridges/rhino/PRUEBA_MANUAL.md`.
 
+**Documentos** (`packages/docs`):
+
+- Base SQLite del usuario, `archimind.sqlite3`, en su carpeta de datos (en Windows,
+  `%LOCALAPPDATA%\ArchiMind`; `ARCHIMIND_DATOS` da otra). Tiene cuatro tablas: `materials`
+  (código, norma, descripción, unidad), `unit_prices` (APU: código, descripción, unidad,
+  precio, fecha y fuente), `area_program` (espacio exigido y área mínima) y `budget_items`
+  (partida del modelo → código APU y material).
+- `uv run --package archimind-docs archimind-docs-importar <tabla> <archivo.csv>` carga un CSV
+  todo o nada: si una fila falla, no carga ninguna y dice cuál y por qué. Acepta coma o punto y
+  coma como separador y coma decimal. Las plantillas vacías están en `packages/docs/plantillas/`
+  y las columnas, en `packages/docs/README.md`.
+
 Siguen pendientes:
 - los muros curvos y varios niveles por plano;
-- `docs` y `vision`;
+- `vision`;
 - los puentes con AutoCAD e Illustrator.

@@ -1,0 +1,33 @@
+# archimind-docs
+
+Documentos del proyecto a partir del modelo y de una base de datos del usuario: cifras para la
+memoria, presupuesto preliminar, programa de áreas, COS/CUS y ficha PDF.
+
+## La base de datos
+
+Un archivo SQLite, `archimind.sqlite3`, uno para todos los proyectos, en la carpeta de datos
+del usuario: en Windows, `%LOCALAPPDATA%\ArchiMind` (p. ej.
+`C:\Users\<usuario>\AppData\Local\ArchiMind`). La variable de entorno `ARCHIMIND_DATOS` da
+otra carpeta. Se crea vacía la primera vez que se usa.
+
+Los datos los carga el usuario desde CSV, con el comando:
+
+```
+uv run --package archimind-docs archimind-docs-importar <tabla> <archivo.csv>
+```
+
+Responde cuántas filas cargó. Si alguna fila tiene un problema, **no carga nada** y lista cada
+fila con su número (la del encabezado es la 1) y qué falla. Las tablas con código actualizan
+las filas con el mismo código y conservan las demás; `area_program` se reemplaza entera.
+
+Las plantillas vacías, con el encabezado que espera cada tabla, están en
+[`plantillas/`](plantillas). Los archivos van en UTF-8 (Excel: «CSV UTF-8»), separados por
+coma o por punto y coma. Los números admiten coma decimal y punto de miles (`1.234,56`); con
+coma como separador, un número con coma decimal va entre comillas.
+
+| Tabla | Columnas |
+|---|---|
+| `materials` | `codigo`, `norma` (p. ej. NTC 4026), `descripcion`, `unidad` |
+| `unit_prices` (APU) | `codigo`, `descripcion`, `unidad`, `precio` (≥ 0), `fecha` (AAAA-MM-DD), `fuente` |
+| `area_program` | `espacio` (el nombre que se exige, p. ej. `Habitación`), `area_minima` en m²; una fila por espacio exigido, así que dos habitaciones son dos filas |
+| `budget_items` | `partida` (la clave de una partida del modelo), `codigo_apu`, `codigo_material` (opcional) |

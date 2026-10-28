@@ -53,6 +53,8 @@ no comercial.
 - `uv run --package archimind-core archimind-core` — arranca el servidor de core por stdio (el
   paquete se llama `archimind-core`, no `core`). El puente con Rhino:
   `uv run --package archimind-rhino-bridge archimind-rhino-bridge`.
+- `uv run --package archimind-docs archimind-docs-importar <tabla> <archivo.csv>` — carga un CSV
+  en la base de datos del usuario (materiales, APU, programa de áreas, partidas).
 
 ## Forma de trabajo
 - Plan antes de cambios grandes. Cambios pequeños, un commit por tarea.

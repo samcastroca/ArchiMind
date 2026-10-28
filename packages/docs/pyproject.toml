@@ -1,11 +1,20 @@
 [project]
 name = "archimind-docs"
 version = "0.1.0"
-description = "Servidor MCP archimind-docs: cuadros de áreas, axonometrías y cortes."
+description = "Servidor MCP archimind-docs: memoria, presupuesto, programa de áreas y ficha PDF."
 requires-python = ">=3.11"
-dependencies = ["archimind-schema"]
+dependencies = [
+    "archimind-core",
+    "archimind-schema",
+    "platformdirs>=4",
+    "pydantic>=2",
+]
+
+[project.scripts]
+archimind-docs-importar = "archimind_docs.importers:main"
 
 [tool.uv.sources]
+archimind-core = { workspace = true }
 archimind-schema = { workspace = true }
 
 [build-system]
