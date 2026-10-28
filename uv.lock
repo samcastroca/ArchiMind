@@ -145,6 +145,7 @@ source = { editable = "packages/docs" }
 dependencies = [
     { name = "archimind-core" },
     { name = "archimind-schema" },
+    { name = "mcp" },
     { name = "platformdirs" },
     { name = "pydantic" },
 ]
@@ -153,6 +154,7 @@ dependencies = [
 requires-dist = [
     { name = "archimind-core", editable = "packages/core" },
     { name = "archimind-schema", editable = "packages/schema" },
+    { name = "mcp", specifier = ">=2.3" },
     { name = "platformdirs", specifier = ">=4" },
     { name = "pydantic", specifier = ">=2" },
 ]

@@ -98,6 +98,11 @@ cuando la ventana vuelve a mostrar la ruta y queda esperando otro comando.
       "command": "uv",
       "args": ["run", "--directory", "C:\\RUTA\\ABSOLUTA\\A\\ArchiMind", "--package", "archimind-bloques", "archimind-bloques"],
       "env": { "PYTHONUTF8": "1" }
+    },
+    "archimind-docs": {
+      "command": "uv",
+      "args": ["run", "--directory", "C:\\RUTA\\ABSOLUTA\\A\\ArchiMind", "--package", "archimind-docs", "archimind-docs"],
+      "env": { "PYTHONUTF8": "1" }
     }
   }
 }
@@ -109,7 +114,7 @@ cuando la ventana vuelve a mostrar la ruta y queda esperando otro comando.
    bandeja del sistema (junto al reloj, a veces detrás de la flecha `^`), hacer clic derecho y
    elegir **Salir**.
 2. Abrirlo de nuevo y entrar en **Configuración → Desarrollador**: deben aparecer
-   `archimind-core` y `archimind-bloques`, los dos en marcha (*running*).
+   `archimind-core`, `archimind-bloques` y `archimind-docs`, los tres en marcha (*running*).
 3. Probarlo en un chat nuevo con un plano de ejemplo que viene incluido, cambiando las rutas por
    las de este equipo:
 
@@ -147,7 +152,8 @@ en la misma ruta, no hay que cambiar la configuración.
 ## Uso desde Claude Desktop
 
 Referencia técnica de la configuración; la guía de arriba cubre el caso habitual. Hace falta [uv](https://docs.astral.sh/uv/) y [git](https://git-scm.com/downloads) instalados.
-Hay tres servidores: `archimind-core` (planos y modelo), `archimind-bloques` (carpintería) y
+Hay cuatro servidores: `archimind-core` (planos y modelo), `archimind-bloques` (carpintería),
+`archimind-docs` (memoria, presupuesto, programa de áreas, COS/CUS y ficha PDF) y
 `rhino-bridge` (el modelo en Rhino 8, ver [bridges/rhino](bridges/rhino/README.md)). Se declaran en `claude_desktop_config.json`. Para abrirlo, en Claude Desktop:
 **Configuración → Desarrollador → Editar configuración**. Así se abre (o se crea) el archivo
 que la app lee de verdad: si Claude Desktop se instaló desde Microsoft Store, Windows redirige
@@ -183,6 +189,18 @@ repositorio, con las barras invertidas dobles:
       ],
       "env": { "PYTHONUTF8": "1" }
     },
+    "archimind-docs": {
+      "command": "uv",
+      "args": [
+        "run",
+        "--directory",
+        "C:\\RUTA\\ABSOLUTA\\A\\ArchiMind",
+        "--package",
+        "archimind-docs",
+        "archimind-docs"
+      ],
+      "env": { "PYTHONUTF8": "1" }
+    },
     "rhino-bridge": {
       "command": "uv",
       "args": [
@@ -205,7 +223,7 @@ Dónde va en el archivo:
 - **Archivo con contenido y sin `mcpServers`**: `mcpServers` se añade como una clave más del
   objeto de primer nivel, junto a las que ya hay (p. ej. `preferences`), separada por una coma.
 - **Archivo que ya tiene `mcpServers`**: solo se añaden las entradas `"archimind-core": {…}`,
-  `"archimind-bloques": {…}` y `"rhino-bridge": {…}` dentro de ese objeto, separadas por comas de los otros servidores. El archivo debe tener una sola
+  `"archimind-bloques": {…}`, `"archimind-docs": {…}` y `"rhino-bridge": {…}` dentro de ese objeto, separadas por comas de los otros servidores. El archivo debe tener una sola
   clave `mcpServers`.
 
 El resultado tiene esta forma, donde los `…` son lo que ya hubiera en el archivo:
@@ -217,6 +235,7 @@ El resultado tiene esta forma, donde los `…` son lo que ya hubiera en el archi
     "otro-servidor": { … },
     "archimind-core": { "command": …, "args": […], "env": { … } },
     "archimind-bloques": { "command": …, "args": […], "env": { … } },
+    "archimind-docs": { "command": …, "args": […], "env": { … } },
     "rhino-bridge": { "command": …, "args": […], "env": { … } }
   }
 }
@@ -694,6 +713,25 @@ descripciones explican el esquema con un ejemplo («ventana corrediza de alumini
   todo o nada: si una fila falla, no carga ninguna y dice cuál y por qué. Acepta coma o punto y
   coma como separador y coma decimal. Las plantillas vacías están en `packages/docs/plantillas/`
   y las columnas, en `packages/docs/README.md`.
+- **Partidas del modelo**, cada una con una clave fija que es la de `budget_items`:
+  - `muro-<espesor>`, en m² de una cara (longitud × altura menos los vanos; sin cantidad si
+    faltan alturas);
+  - `puerta-`, `ventana-` y `vano-<ancho>x<alto>`, en unidades;
+  - `piso-<categoría>`, en m², sumando las áreas de los espacios de esa categoría.
+
+  Los materiales asignados salen de `budget_items` → `materials` y del perfil de la
+  carpintería de cada bloque.
+- **Servidor MCP `archimind-docs`** (`archimind_docs/server.py`). Lee el modelo, nunca lo
+  escribe, y toma de la base lo que no sale del modelo. Herramientas, todas con `project_path`:
+  - `datos_para_memoria`: en JSON, todas las cifras verificadas (niveles, conteos, cuadro de
+    áreas, metros de muro por espesor, vanos por medida, partidas y materiales asignados), para
+    que Claude redacte la memoria sin inventar números. Lo guarda también en
+    `salidas/datos_memoria.json`. Una altura de nivel sin confirmar sale como `null`.
+  - `verificar_programa_areas`: cada fila de `area_program` toma un espacio con ese nombre, sin
+    contar mayúsculas, tildes ni el número final; las exigencias mayores eligen primero.
+    Responde lo que cumple, lo que no llega (con el faltante), lo que falta y lo que sobra.
+  - `calcular_cos_cus(area_lote)`: COS = huella construida del nivel más bajo / lote; CUS =
+    área construida de todos los niveles / lote.
 
 Siguen pendientes:
 - los muros curvos y varios niveles por plano;

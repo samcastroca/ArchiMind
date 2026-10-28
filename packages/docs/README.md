@@ -31,3 +31,16 @@ coma como separador, un número con coma decimal va entre comillas.
 | `unit_prices` (APU) | `codigo`, `descripcion`, `unidad`, `precio` (≥ 0), `fecha` (AAAA-MM-DD), `fuente` |
 | `area_program` | `espacio` (el nombre que se exige, p. ej. `Habitación`), `area_minima` en m²; una fila por espacio exigido, así que dos habitaciones son dos filas |
 | `budget_items` | `partida` (la clave de una partida del modelo), `codigo_apu`, `codigo_material` (opcional) |
+
+## Claves de partida
+
+`budget_items` relaciona cada partida del modelo con su APU (y, si se quiere, su material). La
+clave es fija y la entrega `datos_para_memoria` en `partidas`:
+
+| Clave | Unidad | Cantidad |
+|---|---|---|
+| `muro-<espesor>`, p. ej. `muro-0.15`, `muro-0.125` | m2 | Una cara: longitud de eje × altura, menos los vanos. Sin cantidad si al nivel le falta la altura confirmada. |
+| `puerta-<ancho>x<alto>`, `ventana-…`, `vano-…`, p. ej. `puerta-0.90x2.10` | un | Cantidad de vanos de ese tipo y medida |
+| `piso-util`, `piso-balcon`, `piso-circulacion`, `piso-servicio`, `piso-tecnico` | m2 | Suma de las áreas de los espacios de esa categoría |
+
+Las medidas van en metros con dos decimales, o tres si hacen falta.

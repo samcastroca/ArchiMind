@@ -6,11 +6,13 @@ requires-python = ">=3.11"
 dependencies = [
     "archimind-core",
     "archimind-schema",
+    "mcp>=2.3",
     "platformdirs>=4",
     "pydantic>=2",
 ]
 
 [project.scripts]
+archimind-docs = "archimind_docs.server:main"
 archimind-docs-importar = "archimind_docs.importers:main"
 
 [tool.uv.sources]
