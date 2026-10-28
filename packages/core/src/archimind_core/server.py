@@ -53,8 +53,8 @@ INSTRUCTIONS = """\
 ArchiMind convierte planos arquitectónicos DXF/DWG en un modelo semántico (muros, vanos,
 espacios) guardado en la carpeta de cada proyecto y versionado con git.
 Flujo: abrir_proyecto → importar_plano → proponer_mapeo_capas → aplicar_mapeo (con la propuesta
-revisada) → confirmar_escala → consultas (listar_espacios, listar_vanos, cuadro_de_areas,
-validar_modelo), exportar_plano (png, dxf o dwg) y comparar_versiones.
+revisada) → confirmar_escala → consultas (listar_modelo, cuadro_de_areas, validar_modelo),
+exportar_plano (png, dxf o dwg) y comparar_versiones.
 La carpintería la propone archimind-bloques (insertar_bloques_en_plano) en un borrador; se guarda
 en el modelo con asignar_bloques.
 Lo editado en Rhino lo lee rhino-bridge (leer_cambios) en un borrador; se guarda en el modelo con
@@ -274,20 +274,19 @@ def validar_modelo(project_path: ProjectPath) -> str:
 
 
 @_tool(READS)
-def listar_espacios(project_path: ProjectPath) -> str:
-    """Lista los espacios del modelo con su ID, nombre, categoría y área. Úsala para ver qué
-    recintos se reconocieron o para buscar el ID de un espacio. Para los totales, usa
-    cuadro_de_areas."""
+def listar_modelo(
+    project_path: ProjectPath,
+    que: Annotated[
+        Literal["espacios", "vanos"],
+        Field(description='"espacios" para los recintos, "vanos" para puertas y ventanas.'),
+    ],
+) -> str:
+    """Lista una parte del modelo. Con que="espacios", cada espacio con su ID, nombre, categoría
+    y área: úsala para ver qué recintos se reconocieron o para buscar el ID de un espacio (para
+    los totales, usa cuadro_de_areas). Con que="vanos", las puertas, ventanas y vanos libres: el
+    conteo por tipo y medida, y cada vano con su ancho, alto, antepecho, muro y bloque."""
     _, project = _use(project_path)
-    return summaries.spaces(project)
-
-
-@_tool(READS)
-def listar_vanos(project_path: ProjectPath) -> str:
-    """Lista las puertas, ventanas y vanos libres: el conteo por tipo y medida, y cada vano con
-    su ancho, alto, antepecho y muro. Úsala para revisar la carpintería del modelo."""
-    _, project = _use(project_path)
-    return summaries.openings(project)
+    return summaries.spaces(project) if que == "espacios" else summaries.openings(project)
 
 
 @_tool(WRITES_OUTPUT)

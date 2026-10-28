@@ -169,7 +169,10 @@ def _requested(
     opens_into: str,
 ) -> Site:
     if opens_into not in {space.id for space in project.spaces}:
-        raise FitError(f"No existe el recinto {opens_into}: usa listar_espacios de archimind-core.")
+        raise FitError(
+            f"No existe el recinto {opens_into}: usa listar_modelo(que='espacios') de "
+            "archimind-core."
+        )
     for side, room in rooms.items():
         if room is not None and room.id == opens_into:
             return Site(start, end, side, room, f"abre hacia {_name(room)}, como se pidió")

@@ -88,7 +88,7 @@ Por cada uno:
 El pedido 20 (agregar_al_catalogo) cambia `packages/bloques/catalog.yaml` de verdad; después se
 deshace con `git checkout packages/bloques/catalog.yaml`. Los pedidos 17 y 18 dejan
 `salidas\borrador_bloques.json`: decirle a Claude «guárdalo en el modelo» debe llamar a
-asignar_bloques de archimind-core, y listar_vanos debe mostrar después el `blq-` de cada vano.
+asignar_bloques de archimind-core, y listar_modelo(que="vanos") debe mostrar después el `blq-` de cada vano.
 
 ## AutoCAD: el plano con la carpintería
 

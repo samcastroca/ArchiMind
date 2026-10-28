@@ -42,7 +42,7 @@ ArchiMind genera bloques de carpintería (puertas y ventanas) con los perfiles d
 Bloque suelto, con las medidas que dé el usuario: crear_bloque. Carpintería de un proyecto:
 ajustar_bloque_a_vano (consulta, no escribe nada) → insertar_bloques_en_plano (DXF con la
 carpintería y un borrador) → asignar_bloques de archimind-core, que la guarda en el modelo.
-Los IDs de vano (vano-) y de recinto (esp-) salen de listar_vanos y listar_espacios de
+Los IDs de vano (vano-) y de recinto (esp-) salen de listar_modelo (que="vanos" o "espacios") de
 archimind-core.
 No inventes medidas: pasa solo las que dio el usuario; lo que falta sale del vano o del catálogo
 y la respuesta dice qué se supuso. Las claves de parametros y preferencias son las del esquema,
@@ -158,7 +158,9 @@ def crear_bloque(
 @_tool(READS)
 def ajustar_bloque_a_vano(
     project_path: ProjectPath,
-    vano_id: Annotated[str, Field(description="ID del vano (p. ej. vano-0003), de listar_vanos.")],
+    vano_id: Annotated[
+        str, Field(description="ID del vano (p. ej. vano-0003), de listar_modelo de core.")
+    ],
     preferencias: Preferences | None = None,
 ) -> str:
     """Propone la carpintería de un vano del modelo sin escribir nada: tipo, perfil, hojas, mano

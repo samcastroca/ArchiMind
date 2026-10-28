@@ -351,7 +351,7 @@ repositorio del proyecto y responden con el hash de la versión:
   cada vista con su extensión; se repite con `vista` = el número de la planta.
 - `confirmar_escala(muro_id=None, longitud_real=None)`: sin argumentos confirma las unidades
   detectadas; con argumentos recalcula la escala.
-- `validar_modelo`, `listar_espacios` y `listar_vanos` (con el bloque de cada vano).
+- `validar_modelo` y `listar_modelo(que)`: `"espacios"` o `"vanos"` (con el bloque de cada vano).
 - `cuadro_de_areas`: con la escala confirmada, además escribe `salidas/cuadro_de_areas.csv`.
 - `comparar_versiones(version_a, version_b)`: hashes o referencias como `HEAD~1`.
 - `exportar_plano(formato="dxf", version_dwg="R2018")`: `"png"` → `salidas/vista.png`; `"dxf"` →

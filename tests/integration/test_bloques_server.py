@@ -240,7 +240,7 @@ async def test_full_flow_from_fit_to_the_model(
     assert f"Carpintería asignada a {len(openings)} vanos" in assigned
     assert all(_by_id(model, o.id).block_id is not None for o in openings)
     assert not [p for p in validate(model) if p.code.startswith("bloque_")]
-    assert "· blq-0001" in await call(core, "listar_vanos", project_path=path)
+    assert "· blq-0001" in await call(core, "listar_modelo", project_path=path, que="vanos")
 
     again = await call(
         bloques,

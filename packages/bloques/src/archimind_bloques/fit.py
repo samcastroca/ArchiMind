@@ -132,7 +132,9 @@ def _opening(project: Project, opening_id: str) -> Opening:
     for opening in project.openings:
         if opening.id == opening_id:
             return opening
-    raise FitError(f"No existe el vano {opening_id}: los vanos los lista listar_vanos de core.")
+    raise FitError(
+        f"No existe el vano {opening_id}: los vanos los lista listar_modelo(que='vanos') de core."
+    )
 
 
 def _wall(project: Project, opening: Opening) -> Wall:

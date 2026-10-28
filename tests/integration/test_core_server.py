@@ -39,8 +39,7 @@ TOOLS = {
     "aplicar_mapeo",
     "confirmar_escala",
     "validar_modelo",
-    "listar_espacios",
-    "listar_vanos",
+    "listar_modelo",
     "cuadro_de_areas",
     "comparar_versiones",
     "exportar_plano",
@@ -173,10 +172,10 @@ async def test_full_flow_with_a_confirmed_plan(client: Client, tmp_path: Path) -
     assert recent_versions(folder)[0].message.startswith("Aplica el mapeo de capas")
     assert _versions(folder) == 3
 
-    spaces = await call(client, "listar_espacios", project_path=path)
+    spaces = await call(client, "listar_modelo", project_path=path, que="espacios")
     for name in (s.name for s in load_expected("apto_2hab").spaces):
         assert name in spaces
-    openings = await call(client, "listar_vanos", project_path=path)
+    openings = await call(client, "listar_modelo", project_path=path, que="vanos")
     assert f"{len(project.openings)} vanos" in openings
     assert all(o.id in openings for o in project.openings)
     validation = await call(client, "validar_modelo", project_path=path)
@@ -229,8 +228,11 @@ async def test_inferred_units_stay_preliminary_until_confirmed(
     path = str(folder)
     assert not load_project(folder).scale_confirmed
 
-    for tool in ("listar_espacios", "cuadro_de_areas"):
-        assert "PRELIMINAR: escala sin confirmar" in await call(client, tool, project_path=path)
+    spaces = await call(client, "listar_modelo", project_path=path, que="espacios")
+    assert "PRELIMINAR: escala sin confirmar" in spaces
+    assert "PRELIMINAR: escala sin confirmar" in await call(
+        client, "cuadro_de_areas", project_path=path
+    )
     assert "CSV no exportado" in await call(client, "cuadro_de_areas", project_path=path)
     assert "confirma la escala" in await fails(
         client, "exportar_plano", project_path=path, formato="dxf"
@@ -304,7 +306,7 @@ async def test_assigned_blocks_are_versioned_and_listed(client: Client, tmp_path
     assert f"{doors[0].id} → blq-0001 (nuevo)" in assigned
     assert f"Versión {recent_versions(folder)[0].hash}." in assigned
     assert recent_versions(folder)[0].message == "Asigna bloques a 2 vanos"
-    listed = await call(client, "listar_vanos", project_path=path)
+    listed = await call(client, "listar_modelo", project_path=path, que="vanos")
     assert f"{doors[0].id} · puerta" in listed and "· blq-0001" in listed
 
     again = await call(client, "asignar_bloques", project_path=path)
@@ -317,7 +319,7 @@ async def test_assigned_blocks_are_versioned_and_listed(client: Client, tmp_path
 async def test_errors_reach_the_model_with_a_clear_message(client: Client, tmp_path: Path) -> None:
     missing = str(tmp_path / "no-existe")
     assert "ábrelo primero con abrir_proyecto" in await fails(
-        client, "listar_espacios", project_path=missing
+        client, "listar_modelo", project_path=missing, que="espacios"
     )
 
     folder = tmp_path / "casa"
@@ -471,7 +473,7 @@ async def test_the_resource_follows_the_last_project_used(client: Client, tmp_pa
     await call(client, "abrir_proyecto", project_path=str(tmp_path / "uno"))
     await call(client, "abrir_proyecto", project_path=str(tmp_path / "dos"))
     assert "Proyecto «dos»" in await read_model(client)
-    await call(client, "listar_espacios", project_path=str(tmp_path / "uno"))
+    await call(client, "listar_modelo", project_path=str(tmp_path / "uno"), que="espacios")
     summary = await read_model(client)
     assert "Proyecto «uno»" in summary and "Escala: sin confirmar" in summary
 
@@ -496,7 +498,7 @@ async def test_long_lists_are_cut_short(client: Client, tmp_path: Path) -> None:
     path = str(folder)
 
     # call() ya comprueba que ninguna respuesta pasa de 50 líneas.
-    assert "  … y 76 más" in await call(client, "listar_espacios", project_path=path)
+    assert "  … y 76 más" in await call(client, "listar_modelo", project_path=path, que="espacios")
     assert "  … y 79 más" in await call(client, "cuadro_de_areas", project_path=path)
     validation = await call(client, "validar_modelo", project_path=path)
     assert "120 errores" in validation and "  … y 76 más" in validation
