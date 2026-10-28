@@ -99,10 +99,11 @@ class _Handler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:  # noqa: N802 (nombre de http.server)
         length = int(self.headers.get("Content-Length") or 0)
+        # Se lee siempre: en Windows, responder sin leer el cuerpo corta la conexión.
         if length > MAX_BODY:
+            _discard(self.rfile, length)
             self._reply(413, error="La petición es demasiado grande.")
             return
-        # Se lee siempre: en Windows, responder sin leer el cuerpo corta la conexión.
         body = self.rfile.read(length)
         if not self._authorized():
             self._reply(401, error="Token del puente incorrecto.")
@@ -152,6 +153,15 @@ class _Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
         self.wfile.write(data)
+
+
+def _discard(stream: Any, length: int, chunk: int = 64 * 1024) -> None:
+    """Lee y descarta `length` bytes por trozos, sin guardarlos."""
+    while length > 0:
+        data = stream.read(min(length, chunk))
+        if not data:
+            return
+        length -= len(data)
 
 
 def start(ops: Any, invoke: Invoke, port: int, token: str) -> BridgeServer:

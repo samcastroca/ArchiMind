@@ -113,7 +113,10 @@ def test_rejects_bad_bodies(server: bridge.BridgeServer, body: bytes, status: in
 
 def test_rejects_huge_bodies(server: bridge.BridgeServer, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(bridge, "MAX_BODY", 10)
-    assert _post(server, "save_as", json.dumps({"path": "x" * 20}).encode())[0] == 413
+    # Grande a propósito: si el puente respondiera sin leerlo, Windows cortaría la conexión.
+    body = json.dumps({"path": "x" * 4 * 1024 * 1024}).encode()
+    status, answer = _post(server, "save_as", body)
+    assert (status, answer["error"]) == (413, "La petición es demasiado grande.")
 
 
 def test_returns_the_message_of_an_op_error(server: bridge.BridgeServer) -> None:
