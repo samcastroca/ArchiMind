@@ -355,7 +355,8 @@ repositorio del proyecto y responden con el hash de la versión:
   detectadas; con argumentos recalcula la escala.
 - `definir_alturas(por_nivel=None, por_espacio=None)`: las alturas que da el usuario. Por nivel,
   confirma la altura del nivel; por espacio, la pone en los muros que lo delimitan (un muro entre
-  dos alturas toma la mayor, con aviso). Si un vano quedaría más alto que su muro, no aplica nada.
+  espacios de alturas distintas, la pedida o la del nivel confirmado, toma la mayor, con aviso).
+  Si un vano quedaría más alto que su muro, no aplica nada.
 - `validar_modelo` y `listar_modelo(que)`: `"espacios"` o `"vanos"` (con el bloque de cada vano).
 - `cuadro_de_areas`: con la escala confirmada, además escribe `salidas/cuadro_de_areas.csv`.
 - `comparar_versiones(version_a, version_b)`: hashes o referencias como `HEAD~1`.

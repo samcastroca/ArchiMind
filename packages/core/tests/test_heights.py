@@ -66,8 +66,26 @@ def test_by_level_then_by_space_and_own_heights_are_kept() -> None:
 
     assert result.kept_walls == [project.walls[0].id]
     assert wall_height(result.project, result.project.walls[0]) == 2.80
-    assert wall_height(result.project, result.project.walls[2]) == 2.30
     assert wall_height(result.project, result.project.walls[1]) == 2.50
+
+
+def test_a_lower_space_does_not_lower_walls_shared_with_the_level_height() -> None:
+    """El baño es más bajo que el resto del piso: sus muros lo separan de espacios con la altura
+    del nivel, así que llegan hasta ella."""
+    project = _apto()
+    level_id = project.levels[0].id
+    bath = _space(project, "Baño")
+    result = define_heights(project, by_level={level_id: 2.60}, by_space={bath: 2.40})
+
+    north = project.walls[2].id
+    assert result.walls[north] == 2.60
+    assert any(
+        w.startswith(f"{north} separa")
+        and "2.60 m, la de su nivel" in w
+        and "queda con 2.60 m" in w
+        for w in result.warnings
+    )
+    assert set(result.walls.values()) == {2.60}
 
 
 @pytest.mark.parametrize(

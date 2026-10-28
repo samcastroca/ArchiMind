@@ -76,34 +76,45 @@ def define_heights(
             level.height_confirmed = True
     kept = [w.id for w in result.walls if w.level_id in by_level and w.height is not None]
 
-    # Muro → (altura, espacio que la pidió). Entre dos espacios gana la mayor.
-    chosen: dict[str, tuple[float, str]] = {}
+    # La altura de cada espacio: la pedida o, si no, la de su nivel confirmado.
+    confirmed = {
+        level.id: level.default_height for level in result.levels if level.height_confirmed
+    }
+    space_heights = {s.id: by_space.get(s.id, confirmed.get(s.level_id)) for s in result.spaces}
+    polygons = {s.id: Polygon(s.polygon.exterior, s.polygon.holes) for s in result.spaces}
+
+    def bounded(wall: Wall) -> list[str]:
+        return [
+            s.id
+            for s in result.spaces
+            if s.level_id == wall.level_id and _bounds(wall, polygons[s.id])
+        ]
+
+    walls: dict[str, float] = {}
     warnings = []
-    for space_id, height in by_space.items():
-        space = spaces[space_id]
-        polygon = Polygon(space.polygon.exterior, space.polygon.holes)
-        bounding = [w for w in result.walls if w.level_id == space.level_id and _bounds(w, polygon)]
-        if not bounding:
+    for space_id in by_space:
+        around = [w for w in result.walls if space_id in bounded(w)]
+        if not around:
             warnings.append(f"{space_id} no tiene muros que lo delimiten: no cambió ninguno")
-        for wall in bounding:
-            previous = chosen.get(wall.id)
-            if previous is not None and abs(previous[0] - height) > LENGTH_TOL:
-                high, low = sorted([previous, (height, space_id)], reverse=True)
+        for wall in around:
+            if wall.id in walls:
+                continue
+            # Un muro entre espacios de alturas distintas llega hasta el más alto.
+            sides = sorted((h, s) for s in bounded(wall) if (h := space_heights[s]) is not None)
+            (low, low_id), (high, high_id) = sides[0], sides[-1]
+            if high - low > LENGTH_TOL:
+                source = "" if high_id in by_space else ", la de su nivel"
                 warnings.append(
-                    f"{wall.id} separa {high[1]} ({high[0]:.2f} m) de {low[1]} "
-                    f"({low[0]:.2f} m): queda con {high[0]:.2f} m"
+                    f"{wall.id} separa {high_id} ({high:.2f} m{source}) de {low_id} "
+                    f"({low:.2f} m): queda con {high:.2f} m"
                 )
-            if previous is None or height > previous[0]:
-                chosen[wall.id] = (height, space_id)
-    for wall in result.walls:
-        if wall.id in chosen:
-            wall.height = chosen[wall.id][0]
+            wall.height = walls[wall.id] = high
 
     _check_openings_fit(result)
     return HeightsResult(
         project=result,
         levels=dict(by_level),
-        walls={wall_id: height for wall_id, (height, _) in chosen.items()},
+        walls=walls,
         kept_walls=kept,
         warnings=warnings,
     )

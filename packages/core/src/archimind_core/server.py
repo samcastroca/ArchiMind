@@ -290,11 +290,12 @@ def definir_alturas(
 ) -> str:
     """Define las alturas de los muros con las medidas que da el usuario; nunca las inventes.
     Con por_nivel, confirma la altura del nivel, que vale para sus muros sin altura propia. Con
-    por_espacio, pone esa altura a los muros que delimitan el espacio; un muro entre dos espacios
-    con alturas distintas toma la mayor, con aviso. Al importar, la altura de cada nivel es un
-    valor por defecto sin confirmar: el 3D (exportar_plano con formato="3dm") la exige
-    confirmada. Si algún vano quedaría más alto que su muro, no aplica nada. Devuelve los muros
-    cambiados, los avisos, lo que aún falta y la versión."""
+    por_espacio, pone esa altura a los muros que delimitan el espacio; un muro entre espacios de
+    alturas distintas (la pedida o la del nivel confirmado) toma la mayor, con aviso. Al
+    importar, la altura de cada nivel es un valor por defecto sin confirmar: el 3D
+    (exportar_plano con formato="3dm") la exige confirmada. Si algún vano quedaría más alto que
+    su muro, no aplica nada. Devuelve los muros cambiados, los avisos, lo que aún falta y la
+    versión."""
     folder, project = _use(project_path)
     result = define_heights(project, por_nivel, por_espacio)
     save_project(result.project, folder)
