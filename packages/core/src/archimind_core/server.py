@@ -24,6 +24,7 @@ from archimind_core.blocks import DRAFT_PATH, BlocksError, apply_block_draft
 from archimind_core.build_3d import HeightsMissing, build_3d
 from archimind_core.build_rules import BuildRulesError, load_build_rules
 from archimind_core.compare import compare_versions
+from archimind_core.cuts import CutsError, propose_cuts, write_cut_proposals
 from archimind_core.drawing import DrawingError
 from archimind_core.edits import DRAFT_PATH as EDITS_DRAFT_PATH
 from archimind_core.edits import EditsError, apply_edits_draft
@@ -57,7 +58,8 @@ espacios) guardado en la carpeta de cada proyecto y versionado con git.
 Flujo: abrir_proyecto → importar_plano → proponer_mapeo_capas → aplicar_mapeo (con la propuesta
 revisada) → confirmar_escala → definir_alturas (las que dé el usuario) → consultas
 (listar_modelo, cuadro_de_areas, validar_modelo), exportar_plano (png, dxf, dwg o 3dm)
-y comparar_versiones.
+y comparar_versiones. Para cortes: proponer_cortes y luego corte de rhino-bridge con el nombre
+que elija el usuario.
 La carpintería la propone archimind-bloques (insertar_bloques_en_plano) en un borrador; se guarda
 en el modelo con asignar_bloques.
 Lo editado en Rhino lo lee rhino-bridge (leer_cambios) en un borrador; se guarda en el modelo con
@@ -77,6 +79,7 @@ WRITES_OUTPUT = ToolAnnotations(
 USER_ERRORS = (
     BlocksError,
     BuildRulesError,
+    CutsError,
     DrawingError,
     EditsError,
     ExportError,
@@ -438,6 +441,20 @@ def exportar_plano(
         )
     path = export_dxf(project, outputs_dir(folder) / f"{folder.name}.dxf")
     return f"DXF exportado en {path} (metros; capas A-MURO, A-PUERTA, A-VENTANA, A-ESPACIO…)."
+
+
+@_tool(WRITES_OUTPUT)
+def proponer_cortes(project_path: ProjectPath) -> str:
+    """Propone 2 o 3 líneas de corte con nombre: "longitudinal" (A-A, paralelo al lado largo
+    del edificio), "transversal" (B-B, al corto) y "escalera" (C-C) si hay un espacio llamado
+    escalera. Cada una evita correr a lo largo de un muro y pasa por la mayor cantidad de vanos;
+    la respuesta dice qué espacios cruza y qué corta. Las guarda en salidas/cortes.json sin
+    modificar el modelo. Úsala cuando el usuario pida un corte o una sección: muéstrale las
+    opciones, que elija una por su nombre, y pásalo a corte de rhino-bridge."""
+    folder, project = _use(project_path)
+    proposed = propose_cuts(project)
+    path = write_cut_proposals(folder, proposed)
+    return summaries.cuts(project, proposed, path)
 
 
 @_tool(WRITES_MODEL)

@@ -305,6 +305,9 @@ carpintería paramétrica con el suyo, y en `bridges/rhino` el puente con Rhino 
   `NewOpening` y `NewSpace`, con un `ref` temporal `nuevo-N` al que core pone un ID inédito; un
   vano nuevo puede ir en un muro nuevo por su `ref`) con el SHA-256 de esa versión
   (`base_sha256`), para rechazarlo si el modelo cambió.
+- **Cortes propuestos** (`CutProposals`, en `salidas/cortes.json`): cada `CutLine` con su nombre
+  para elegirla (`longitudinal`…), su rótulo (`A-A`), sus dos puntos en planta y una
+  descripción, con el SHA-256 de la versión del modelo con la que se propusieron.
 - **IDs inéditos** con prefijo (`niv-`, `muro-`, `vano-`, `esp-`, `blq-`): `new_id` usa un contador
   por prefijo que solo avanza y se guarda con el modelo.
 - **Geometría derivada** con shapely: longitud y huella de muros, huella de vanos
@@ -339,7 +342,7 @@ la misma capa de muros; se reconstruye con `vista=1`). El modelo esperado está 
   por git).
 
 **Servidor MCP `archimind-core`** (`archimind_core/server.py`, con el SDK oficial `mcp` 2.x y
-`MCPServer`). Son 13 herramientas, todas con `project_path`, que responden con un resumen de
+`MCPServer`). Son 14 herramientas, todas con `project_path`, que responden con un resumen de
 menos de 50 líneas y rutas de archivo. Las que modifican el modelo hacen un commit en el
 repositorio del proyecto y responden con el hash de la versión:
 
@@ -374,6 +377,12 @@ repositorio del proyecto y responden con el hash de la versión:
   Responde con lo editado, lo nuevo (`ref` → ID), los renombrados, los espacios cuya área cambió
   (antes → después), los avisos nuevos y la versión. Si el modelo cambió desde la lectura o
   quedaría con errores de `validate`, no aplica nada y los explica.
+- `proponer_cortes`: 2 o 3 líneas de corte con nombre, `longitudinal` (A-A) y `transversal`
+  (B-B), paralelas a los lados del rectángulo mínimo que encierra los muros, y `escalera` (C-C)
+  si un espacio se llama así (el schema no tiene escaleras). De las posiciones del 60 % central
+  descarta las que corren a lo largo de un muro y elige la que corta más vanos. Responde qué
+  espacios cruza y qué vanos corta cada una, sin coordenadas, y las guarda en
+  `salidas/cortes.json` (`CutProposals`) para que `corte` de `rhino-bridge` las use por nombre.
 
 El recurso `archimind://proyecto/modelo` resume el último proyecto abierto o usado en la sesión:
 plano activo, escala, conteos, áreas, validación y últimas versiones. Toda excepción llega al

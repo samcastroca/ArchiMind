@@ -10,5 +10,6 @@ Servidor MCP `archimind-core`. Depende de `archimind-schema`.
   modifica el modelo termina con `history.commit`. La única memoria del servidor es qué proyecto
   resume el recurso `archimind://proyecto/modelo`.
 - `server.py` solo envuelve: la lógica va en los módulos del paquete y los textos de respuesta
-  en `summaries.py`. Ya tiene 13 herramientas, el máximo: una capacidad nueva amplía una
-  herramienta existente o va a otro servidor.
+  en `summaries.py`. Tiene 14 herramientas, una más que el máximo general, por decisión del
+  usuario: una capacidad nueva amplía una herramienta existente o va a otro servidor, salvo que
+  el usuario diga otra cosa.

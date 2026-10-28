@@ -1,5 +1,6 @@
 """Modelo semántico del plano (Pydantic v2) y sus validadores."""
 
+from archimind_schema.cuts import CUTS_FILENAME, CutLine, CutProposals
 from archimind_schema.drafts import (
     BlockAssignment,
     BlocksDraft,
@@ -41,6 +42,7 @@ from archimind_schema.models import (
 from archimind_schema.validation import Problem, validate
 
 __all__ = [
+    "CUTS_FILENAME",
     "ANGLE_TOL_DEG",
     "ID_PREFIXES",
     "LENGTH_TOL",
@@ -52,6 +54,8 @@ __all__ = [
     "BlockAssignment",
     "BlockDefinition",
     "BlocksDraft",
+    "CutLine",
+    "CutProposals",
     "EditsDraft",
     "LayerRole",
     "Level",

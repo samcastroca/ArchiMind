@@ -16,6 +16,7 @@ from archimind_core import area_table, recent_versions, server
 from archimind_core.server import MODEL_URI, mcp
 from archimind_schema import (
     BlocksDraft,
+    CutProposals,
     EditsDraft,
     Space,
     SpacePolygon,
@@ -46,6 +47,7 @@ TOOLS = {
     "exportar_plano",
     "asignar_bloques",
     "aplicar_borrador",
+    "proponer_cortes",
 }
 MAX_LINES = 50
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
@@ -124,7 +126,7 @@ async def _built(client: Client, tmp_path: Path, case: str, insunits: int | None
 async def test_tools_follow_the_server_rules(client: Client) -> None:
     tools = (await client.list_tools()).tools
     assert {tool.name for tool in tools} == TOOLS
-    assert len(tools) <= 13
+    assert len(tools) <= 14  # core tiene una más que el máximo general, por decisión del usuario
     for tool in tools:
         assert re.fullmatch(r"[a-z]+(_[a-z]+)*", tool.name)
         assert "project_path" in tool.input_schema["required"]
@@ -354,6 +356,18 @@ async def test_the_3d_model_asks_for_missing_heights(client: Client, tmp_path: P
         client, "exportar_plano", project_path=path, formato="3dm", espesor_losa=0.2
     )
     assert "Losa de piso de 0.20 m, bajo" in thicker
+
+
+async def test_cuts_are_proposed_by_name(client: Client, tmp_path: Path) -> None:
+    folder = await _built(client, tmp_path, "apto_2hab")
+    proposed = await call(client, "proponer_cortes", project_path=str(folder))
+    assert "  longitudinal (corte A-A): Paralelo al lado largo; cruza Habitación 2" in proposed
+    assert "  transversal (corte B-B): " in proposed and "escalera" not in proposed
+    path = folder / "salidas" / "cortes.json"
+    assert f"Guardados en {path}." in proposed and "corte de rhino-bridge" in proposed
+    proposals = CutProposals.model_validate_json(path.read_text(encoding="utf-8"))
+    assert [c.name for c in proposals.cuts] == ["longitudinal", "transversal"]
+    assert _versions(folder) == 3  # abrir, importar y aplicar: proponer no hace commit
 
 
 # --- Errores ----------------------------------------------------------------------------

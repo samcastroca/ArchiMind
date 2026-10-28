@@ -9,7 +9,7 @@ from collections import Counter
 from collections.abc import Sequence
 from pathlib import Path
 
-from archimind_schema import EditsDraft, Problem, Project, validate
+from archimind_schema import CutLine, EditsDraft, Problem, Project, validate
 
 from archimind_core.blocks import BlocksAssignment
 from archimind_core.build import BuildResult
@@ -321,6 +321,27 @@ def built_3d(result: Build3dResult, from_rules: bool) -> str:
             "vano en dinteles y antepechos, el nivel en las losas.",
         ]
     )
+
+
+def cuts(project: Project, items: Sequence[CutLine], path: Path) -> str:
+    if not items:
+        return _text(
+            [
+                f"No hay cortes para proponer en «{project.name}»: toda posición central corre a "
+                "lo largo de un muro.",
+                "Pide al usuario los dos puntos de la línea de corte para corte de rhino-bridge.",
+            ]
+        )
+    lines = [f"Cortes propuestos para «{project.name}»:"]
+    lines += [f"  {c.name} (corte {c.label}): {c.description}" for c in items]
+    lines.append(f"Guardados en {path}.")
+    if not project.scale_confirmed:
+        lines.append("PRELIMINAR: la escala no está confirmada.")
+    lines.append(
+        "Pregunta al usuario cuál quiere y llama a corte de rhino-bridge con ese nombre en "
+        "linea_de_corte."
+    )
+    return _text(lines)
 
 
 def heights_missing(items: Sequence[MissingHeight]) -> str:
