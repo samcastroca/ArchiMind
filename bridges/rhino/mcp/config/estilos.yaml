@@ -1,0 +1,15 @@
+# Estilos de los dibujos de rhino-bridge (make2d_axonometria y corte).
+# Grosores en mm: deben ser lineweights estándar de DXF (0.13, 0.18, 0.25, 0.35, 0.50, 0.70…).
+# Colores ACI de AutoCAD (7 = negro/blanco, 8 = gris). Tipos de línea de ezdxf: CONTINUOUS,
+# DASHED, HIDDEN, CENTER o DASHDOT.
+layers:
+  VISIBLES: {lineweight_mm: 0.25, color: 7, linetype: CONTINUOUS}
+  OCULTAS: {lineweight_mm: 0.13, color: 8, linetype: DASHED}
+  CORTADO: {lineweight_mm: 0.50, color: 7, linetype: CONTINUOUS}
+  PROYECTADO: {lineweight_mm: 0.18, color: 8, linetype: CONTINUOUS}
+# Escala de los tipos de línea en metros del dibujo: con 0.1, DASHED da trazos de 12.7 cm.
+linetype_scale: 0.1
+# Escala del SVG (1:50): 20 mm de papel por metro.
+svg_scale: 50
+# Separación por defecto de la axonometría explotada, en metros.
+exploded_gap_m: 1.0

@@ -624,9 +624,9 @@ descripciones explican el esquema con un ejemplo («ventana corrediza de alumini
 - `plugin/archimind_bridge.py`, un script de Python 3.9 para el editor de scripts de Rhino 8, solo
   con la biblioteca estándar y RhinoCommon. Arranca un servidor HTTP en `127.0.0.1` en un hilo
   secundario, con el puerto y un token compartido en `~/.archimind/rhino_bridge.json` (lo crea la
-  primera vez; la variable `ARCHIMIND_RHINO_BRIDGE` da otra ruta). Cinco operaciones fijas
-  (`ping`, `open_file`, `load_model_layers`, `read_tagged_objects`, `save_as`), sin ejecutar
-  código; cada una corre en el hilo de la interfaz con `RhinoApp.InvokeOnUiThread` y se niega si
+  primera vez; la variable `ARCHIMIND_RHINO_BRIDGE` da otra ruta). Seis operaciones fijas
+  (`ping`, `open_file`, `load_model_layers`, `read_tagged_objects`, `save_as` y
+  `hidden_lines`), sin ejecutar código; cada una corre en el hilo de la interfaz con `RhinoApp.InvokeOnUiThread` y se niega si
   Rhino está en medio de un comando. Las coordenadas viajan en metros y se convierten a las
   unidades del documento. Volver a ejecutar el script lo reinicia.
 - En Rhino, el modelo va en `ArchiMind::Muros` (cada muro, su huella extruida con su altura),
@@ -634,7 +634,11 @@ descripciones explican el esquema con un ejemplo («ventana corrediza de alumini
   (superficies a la cota del nivel, con el nombre del espacio como nombre del objeto). Cada
   objeto lleva su ID en el user string `archimind_id`, y el documento guarda el `modelo.json`
   con el que se cargó.
-- **Servidor MCP `rhino-bridge`** (paquete `archimind-rhino-bridge` en `bridges/rhino/mcp`), con 4
+- `hidden_lines` arma en memoria, sin tocar el documento, los prismas que recibe (en metros, con
+  huecos) y calcula con `HiddenLineDrawing` de RhinoCommon, en una vista paralela y con planos de
+  recorte opcionales, los segmentos visibles, ocultos y cortados (`SilhouetteType.SectionCut`),
+  como polilíneas 2D.
+- **Servidor MCP `rhino-bridge`** (paquete `archimind-rhino-bridge` en `bridges/rhino/mcp`), con 5
   herramientas que reciben `project_path`. Si el puente no responde: «Rhino no está abierto o el
   puente no está iniciado; ejecuta <ruta del script> desde el editor de scripts».
   - `estado_rhino`: Rhino, el documento, si es del proyecto y si el modelo cambió desde la carga.
@@ -655,6 +659,18 @@ descripciones explican el esquema con un ejemplo («ventana corrediza de alumini
     los muros de varios tramos; nada de eso entra. Si los cambios son los que core ya aplicó, no
     escribe borrador.
   - `guardar_3dm`: guarda el documento del proyecto en `salidas/<proyecto>.3dm`.
+  - `make2d_axonometria(vista="iso_so", explotada=False, separacion=None, espesor_losa=None)`:
+    isométrica de líneas ocultas desde `iso_ne`, `iso_no`, `iso_se` o `iso_so` (Y+ es el norte)
+    de las piezas del 3D de core (`model_pieces`: machones, dinteles, antepechos y losas, con los
+    vanos abiertos), tomadas de `modelo.json`. Las visibles van en la capa VISIBLES y las ocultas
+    en OCULTAS, a trazos. Explotada: cada nivel sube `separacion` sobre el anterior y sus muros,
+    `separacion` sobre su losa (por defecto, 1 m de `estilos.yaml`). Escribe
+    `salidas/axonometria-<vista>[-explotada].dxf` (metros) y `.svg` (1:50). Necesita la escala
+    confirmada y las alturas: si faltan, no dibuja y responde cuáles, como `exportar_plano`.
+- **Estilos** en `bridges/rhino/mcp/config/estilos.yaml`: grosor (un lineweight estándar de
+  DXF), color y tipo de línea de cada capa (VISIBLES 0.25 mm, OCULTAS 0.13 mm a trazos,
+  CORTADO 0.50 mm y PROYECTADO 0.18 mm), la escala de los tipos de línea, la del SVG y la
+  separación de la explosión.
 - Las pruebas usan un documento de Rhino falso (`bridges/rhino/mcp/tests/fake_rhino.py`) detrás
   del servidor HTTP real del script; lo que depende de RhinoCommon está en
   `bridges/rhino/PRUEBA_MANUAL.md`.

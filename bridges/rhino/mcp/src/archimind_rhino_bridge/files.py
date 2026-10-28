@@ -49,6 +49,12 @@ def load_model(project_path: str | Path) -> ProjectModel:
     return ProjectModel(folder, project, text, sha256(text))
 
 
+def outputs_dir(folder: Path) -> Path:
+    path = folder / OUTPUTS_DIR
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
 def rhino_file(folder: Path) -> Path:
     return folder / OUTPUTS_DIR / f"{folder.name}.3dm"
 

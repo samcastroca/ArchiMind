@@ -10,7 +10,7 @@ Dos mitades que hablan por HTTP local: `plugin/archimind_bridge.py` corre dentro
   Rhino y tiene pruebas; la parte RhinoCommon (`RhinoOps`) es delgada y se prueba a mano con
   `PRUEBA_MANUAL.md`. Toda lógica que se pueda probar va al lado del servidor MCP, que recibe
   datos crudos (caras como bucles de puntos, en metros).
-- Las operaciones son las cinco de `OPS`: una operación nueva se agrega a `OPS`, a `RhinoOps` y a
+- Las operaciones son las seis de `OPS`: una operación nueva se agrega a `OPS`, a `RhinoOps` y a
   `mcp/tests/fake_rhino.py`, que imita a `RhinoOps` para las pruebas.
 - RhinoCommon siempre contra su documentación; lo que no se pudo verificar se dice en
   `PRUEBA_MANUAL.md`. En las ops, `RhinoDoc.ActiveDoc` (no `scriptcontext.doc`); los parámetros

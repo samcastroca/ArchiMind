@@ -1,6 +1,7 @@
 #! python3
 """Puente de ArchiMind dentro de Rhino 8: un servidor HTTP local que el servidor MCP
-`rhino-bridge` llama para abrir, cargar, leer y guardar el documento.
+`rhino-bridge` llama para abrir, cargar, leer y guardar el documento, y para dibujar líneas
+ocultas (axonometrías y cortes) con HiddenLineDrawing.
 
 Se ejecuta desde el editor de scripts de Rhino 8 (comando ScriptEditor → Abrir este archivo →
 Ejecutar). Volver a ejecutarlo reinicia el puente con el código nuevo.
@@ -8,7 +9,7 @@ Ejecutar). Volver a ejecutarlo reinicia el puente con el código nuevo.
 - Escucha solo en 127.0.0.1, en el puerto del archivo de configuración
   (`~/.archimind/rhino_bridge.json`, o la ruta de la variable ARCHIMIND_RHINO_BRIDGE). Si el
   archivo no existe, lo crea con un token aleatorio; el servidor MCP lee el mismo archivo.
-- Toda petición lleva `Authorization: Bearer <token>`. Solo hay cinco operaciones fijas (OPS):
+- Toda petición lleva `Authorization: Bearer <token>`. Solo hay seis operaciones fijas (OPS):
   nada ejecuta código arbitrario.
 - El servidor corre en un hilo secundario; toda operación sobre el documento se ejecuta en el
   hilo de la interfaz con `RhinoApp.InvokeOnUiThread`, porque RhinoDoc no es seguro entre hilos.
@@ -34,7 +35,7 @@ from typing import Any, Callable
 HOST = "127.0.0.1"
 DEFAULT_PORT = 48765
 CONFIG_ENV = "ARCHIMIND_RHINO_BRIDGE"
-OPS = ("ping", "open_file", "load_model_layers", "read_tagged_objects", "save_as")
+OPS = ("ping", "open_file", "load_model_layers", "read_tagged_objects", "save_as", "hidden_lines")
 MAX_BODY = 32 * 1024 * 1024
 UI_TIMEOUT_S = 60.0
 
@@ -232,6 +233,47 @@ def check_load(project: Any, base_sha256: Any, base_model: Any, objects: Any) ->
             raise OpError(f"{item['id']}: tipo de objeto desconocido {kind}.", status=400)
 
 
+def _is_point(value: Any, size: int) -> bool:
+    return (
+        isinstance(value, list)
+        and len(value) == size
+        and all(isinstance(c, (int, float)) and not isinstance(c, bool) for c in value)
+    )
+
+
+def _is_ring(value: Any) -> bool:
+    return isinstance(value, list) and len(value) >= 3 and all(_is_point(p, 2) for p in value)
+
+
+def check_hidden_lines(solids: Any, camera: Any, clips: Any) -> None:
+    """Valida la carga de `hidden_lines` antes de construir nada: prismas en metros (huella,
+    huecos y cotas), la cámara (ubicación, dirección, arriba y el encuadre) y los planos de
+    recorte (origen y normal)."""
+    if not isinstance(solids, list) or not solids:
+        raise OpError("solids debe ser una lista no vacía.", status=400)
+    for index, solid in enumerate(solids):
+        if not isinstance(solid, dict) or not _is_ring(solid.get("footprint")):
+            raise OpError(f"Sólido {index}: huella no válida.", status=400)
+        holes = solid.get("holes", [])
+        if not isinstance(holes, list) or not all(_is_ring(h) for h in holes):
+            raise OpError(f"Sólido {index}: huecos no válidos.", status=400)
+        z0, z1 = solid.get("z0"), solid.get("z1")
+        numbers = isinstance(z0, (int, float)) and isinstance(z1, (int, float))
+        if not (numbers and z1 > z0):
+            raise OpError(f"Sólido {index}: sin alto.", status=400)
+    if not isinstance(camera, dict) or not all(
+        _is_point(camera.get(key), 3) for key in ("location", "direction", "up")
+    ):
+        raise OpError("La cámara necesita location, direction y up.", status=400)
+    if not _is_point(camera.get("frustum"), 6):
+        raise OpError("La cámara necesita el encuadre (frustum).", status=400)
+    if not isinstance(clips, list) or not all(
+        isinstance(c, dict) and _is_point(c.get("origin"), 3) and _is_point(c.get("normal"), 3)
+        for c in clips
+    ):
+        raise OpError("Cada plano de recorte necesita origin y normal.", status=400)
+
+
 # --- RhinoCommon ------------------------------------------------------------------------------
 
 try:
@@ -247,7 +289,7 @@ def invoke_on_ui(fn: Callable[[], Any]) -> Any:
 
 
 class RhinoOps:
-    """Las cinco operaciones; corren en el hilo de la interfaz. Usan siempre
+    """Las seis operaciones; corren en el hilo de la interfaz. Usan siempre
     `RhinoDoc.ActiveDoc`: `scriptcontext.doc` queda fijo al documento de cuando corrió el
     script."""
 
@@ -355,6 +397,94 @@ class RhinoOps:
         if not _active_doc().SaveAs(path):
             raise OpError(f"Rhino no pudo guardar {path}.")
         return {"path": path}
+
+    def hidden_lines(
+        self,
+        solids: list[dict[str, Any]],
+        camera: dict[str, Any],
+        clips: list[dict[str, Any]],
+        include_hidden: bool,
+        tolerance: float,
+    ) -> dict[str, Any]:
+        """Líneas visibles, ocultas y cortadas de unos prismas, con HiddenLineDrawing y una
+        vista paralela. Todo en metros y en memoria: no toca el documento. Cada segmento vuelve
+        como polilínea en el sistema de coordenadas de la HLD (x a la derecha, y hacia arriba),
+        sin su z."""
+        _idle()
+        check_hidden_lines(solids, camera, clips)
+        parameters = Rhino.Geometry.HiddenLineDrawingParameters()
+        parameters.AbsoluteTolerance = tolerance
+        parameters.IncludeTangentEdges = False
+        parameters.IncludeHiddenCurves = bool(include_hidden)
+        parameters.Flatten = True
+        parameters.SetViewport(_parallel_view(camera))
+        for clip in clips:
+            normal = Rhino.Geometry.Vector3d(*clip["normal"])
+            parameters.AddClippingPlane(
+                Rhino.Geometry.Plane(Rhino.Geometry.Point3d(*clip["origin"]), normal)
+            )
+        for index, solid in enumerate(solids):
+            item = {"id": f"sólido {index}", **solid}
+            extrusion = _extrusion(item, 1.0, tolerance)
+            for hole in solid.get("holes", []):
+                extrusion.AddInnerProfile(_polyline_curve(hole, solid["z0"], 1.0))
+            if not parameters.AddGeometry(extrusion, Rhino.Geometry.Transform.Identity, index):
+                raise OpError(f"HiddenLineDrawing no aceptó el sólido {index}.")
+        drawing = Rhino.Geometry.HiddenLineDrawing.Compute(parameters, True)
+        if drawing is None:
+            raise OpError("Rhino no pudo calcular las líneas ocultas.")
+        visibility = Rhino.Geometry.HiddenLineDrawingSegment.Visibility
+        # `None` es palabra reservada en Python: el miembro del enum se lee con getattr.
+        no_silhouette = getattr(Rhino.Geometry.SilhouetteType, "None")
+        segments = []
+        for segment in drawing.Segments:
+            parent = segment.ParentCurve
+            if parent is None or parent.SilhouetteType == no_silhouette:
+                continue
+            if segment.SegmentVisibility == visibility.Visible:
+                cut = parent.SilhouetteType == Rhino.Geometry.SilhouetteType.SectionCut
+                kind = "section" if cut else "visible"
+            elif segment.SegmentVisibility == visibility.Hidden and include_hidden:
+                kind = "hidden"
+            else:
+                continue
+            points = _curve_points(segment.CurveGeometry, tolerance)
+            if len(points) >= 2:
+                segments.append({"kind": kind, "points": points})
+        return {"segments": segments}
+
+
+def _parallel_view(camera: dict[str, Any]) -> Any:
+    """Una vista paralela fuera de pantalla con la cámara y el encuadre dados (en metros)."""
+    view = Rhino.DocObjects.ViewportInfo()
+    try:
+        view.ChangeToParallelProjection(True)
+    except TypeError:  # la documentación da la firma con y sin el argumento
+        view.ChangeToParallelProjection()
+    view.SetCameraLocation(Rhino.Geometry.Point3d(*camera["location"]))
+    view.SetCameraDirection(Rhino.Geometry.Vector3d(*camera["direction"]))
+    view.SetCameraUp(Rhino.Geometry.Vector3d(*camera["up"]))
+    left, right, bottom, top, near, far = camera["frustum"]
+    if not view.SetFrustum(left, right, bottom, top, near, far):
+        raise OpError("Rhino no aceptó el encuadre de la vista.")
+    return view
+
+
+def _curve_points(curve: Any, tolerance: float) -> list[list[float]]:
+    """Los puntos de una curva de la HLD, sin z: los extremos si es recta, sus vértices si es
+    una polilínea y, si no, 32 puntos a lo largo."""
+    if curve is None:
+        return []
+    if curve.IsLinear(tolerance):
+        points = [curve.PointAtStart, curve.PointAtEnd]
+    else:
+        ok, polyline = curve.TryGetPolyline()
+        if ok:
+            points = list(polyline)
+        else:
+            params = curve.DivideByCount(32, True) or []
+            points = [curve.PointAt(t) for t in params]
+    return [[p.X, p.Y] for p in points]
 
 
 def _active_doc() -> Any:

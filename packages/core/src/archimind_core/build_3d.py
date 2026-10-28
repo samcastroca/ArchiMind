@@ -140,8 +140,16 @@ def slab_pieces(project: Project, thickness: float) -> list[Piece]:
 
 
 def build_3d(project: Project, path: str | Path, slab_thickness: float) -> Build3dResult:
-    """Escribe el .3dm. Se niega si la escala no está confirmada, si el modelo tiene errores o
-    si faltan alturas (`HeightsMissing`, con la lista); en esos casos no escribe nada."""
+    """Escribe el .3dm con las piezas de `model_pieces`; si se niega, no escribe nada."""
+    pieces = model_pieces(project, slab_thickness)
+    target = _write(pieces, Path(path))
+    return Build3dResult(target, dict(Counter(p.kind for p in pieces)), slab_thickness)
+
+
+def model_pieces(project: Project, slab_thickness: float) -> list[Piece]:
+    """Los tramos macizos de todos los muros y las losas. Se niega si la escala no está
+    confirmada, si el modelo tiene errores o si faltan alturas (`HeightsMissing`, con la
+    lista)."""
     require_confirmed_scale(project)
     errors = [p for p in validate(project) if p.severity == "error"]
     if errors:
@@ -156,9 +164,7 @@ def build_3d(project: Project, path: str | Path, slab_thickness: float) -> Build
         raise HeightsMissing(missing)
 
     pieces = [piece for wall in project.walls for piece in wall_pieces(project, wall)]
-    pieces += slab_pieces(project, slab_thickness)
-    target = _write(pieces, Path(path))
-    return Build3dResult(target, dict(Counter(p.kind for p in pieces)), slab_thickness)
+    return pieces + slab_pieces(project, slab_thickness)
 
 
 def _elevations(project: Project) -> dict[str, float]:

@@ -13,7 +13,9 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Annotated, Any, ParamSpec
 
-from archimind_schema import Project
+from archimind_core import BuildRulesError, ExportError, HeightsMissing, load_build_rules
+from archimind_core import summaries as core_summaries
+from archimind_schema import LENGTH_TOL, Project
 from mcp.server import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from mcp.types import ToolAnnotations
@@ -22,6 +24,7 @@ from pydantic import Field, ValidationError
 from archimind_rhino_bridge import summaries
 from archimind_rhino_bridge.changes import read_changes
 from archimind_rhino_bridge.client import BridgeError, RhinoBridge
+from archimind_rhino_bridge.drawing_files import DrawingError, parse_segments, write_drawing
 from archimind_rhino_bridge.files import (
     ProjectError,
     ProjectModel,
@@ -29,10 +32,20 @@ from archimind_rhino_bridge.files import (
     create_empty_3dm,
     draft_file,
     load_model,
+    outputs_dir,
     rhino_file,
     write_draft,
 )
 from archimind_rhino_bridge.scene import LAYERS, scene
+from archimind_rhino_bridge.styles import StylesError, load_styles
+from archimind_rhino_bridge.views import (
+    VIEW_NAMES,
+    IsoView,
+    ViewError,
+    drawing_pieces,
+    iso_camera,
+    solids_payload,
+)
 
 INSTRUCTIONS = """\
 rhino-bridge lleva el modelo de un proyecto de ArchiMind a Rhino 8 y lee lo que se editó allí.
@@ -43,6 +56,8 @@ y ::Espacios) → el usuario edita en Rhino → leer_cambios (deja un borrador c
 nuevo y lo borrado) → aplicar_borrador de archimind-core lo guarda en el modelo → abrir_en_rhino
 recarga las capas. guardar_3dm cuando quiera conservar el archivo. estado_rhino dice si Rhino
 responde y si el documento es del proyecto.
+Dibujos de líneas ocultas del modelo, en DXF y SVG: make2d_axonometria (isométricas, también
+explotadas).
 El modelo lo escribe solo archimind-core; este servidor nunca lo modifica. Las medidas salen de
 estas herramientas; no las calcules."""
 
@@ -52,7 +67,15 @@ WRITES_OUTPUT = ToolAnnotations(
     read_only_hint=False, destructive_hint=False, idempotent_hint=True, open_world_hint=False
 )
 # Errores previstos: su mensaje está escrito para el usuario y llega al modelo como ToolError.
-USER_ERRORS = (BridgeError, ProjectError)
+USER_ERRORS = (
+    BridgeError,
+    BuildRulesError,
+    DrawingError,
+    ExportError,
+    ProjectError,
+    StylesError,
+    ViewError,
+)
 
 ProjectPath = Annotated[
     str,
@@ -225,6 +248,76 @@ def guardar_3dm(project_path: ProjectPath) -> str:
     target = rhino_file(model.folder)
     bridge.call("save_as", path=str(target))
     return summaries.saved(target)
+
+
+SlabThickness = Annotated[
+    float | None,
+    Field(
+        description="Espesor de la losa de piso en metros, si el usuario lo da; si no, el de "
+        "build_rules.yaml de archimind-core.",
+        gt=0,
+    ),
+]
+
+
+@_tool(WRITES_OUTPUT)
+def make2d_axonometria(
+    project_path: ProjectPath,
+    vista: Annotated[
+        IsoView,
+        Field(
+            description='Desde dónde se mira, con el norte en Y+: "iso_so" (suroeste, la '
+            'habitual), "iso_se", "iso_ne" o "iso_no".'
+        ),
+    ] = "iso_so",
+    explotada: Annotated[
+        bool,
+        Field(description="Separa en altura cada nivel y, dentro de él, los muros de su losa."),
+    ] = False,
+    separacion: Annotated[
+        float | None,
+        Field(
+            description="Solo con explotada: separación en metros; si no, la de estilos.yaml.",
+            gt=0,
+        ),
+    ] = None,
+    espesor_losa: SlabThickness = None,
+) -> str:
+    """Dibuja una axonometría isométrica del modelo con líneas ocultas (HiddenLineDrawing de
+    Rhino, como Make2D): las piezas del 3D (muros con los vanos abiertos y una losa por nivel),
+    con las líneas visibles en la capa VISIBLES y las ocultas, a trazos, en OCULTAS, con los
+    grosores de estilos.yaml. Escribe salidas/axonometria-<vista>[-explotada].dxf y .svg. Hace
+    falta Rhino abierto con el puente iniciado (no usa ni cambia su documento), la escala
+    confirmada y las alturas: si faltan, no dibuja nada y dice cuáles; pídelas al usuario y
+    aplícalas con definir_alturas de archimind-core, nunca las supongas."""
+    model = load_model(project_path)
+    styles = load_styles()
+    gap = separacion or styles.exploded_gap_m
+    thickness = espesor_losa or load_build_rules().slab_thickness_m
+    try:
+        pieces = drawing_pieces(model.project, explotada, gap, thickness)
+    except HeightsMissing as missing:
+        return core_summaries.heights_missing(missing.missing)
+    result = bridge.call(
+        "hidden_lines",
+        solids=solids_payload(pieces),
+        camera=iso_camera(vista, pieces),
+        clips=[],
+        include_hidden=True,
+        tolerance=LENGTH_TOL,
+    )
+    name = f"axonometria-{vista}" + ("-explotada" if explotada else "")
+    folder = outputs_dir(model.folder)
+    files = write_drawing(
+        parse_segments(result),
+        {"visible": "VISIBLES", "hidden": "OCULTAS"},
+        styles,
+        folder / f"{name}.dxf",
+        folder / f"{name}.svg",
+    )
+    title = f"Axonometría {VIEW_NAMES[vista]}"
+    notes = [f"Explotada: {gap:.2f} m entre cada losa y sus muros y entre niveles."]
+    return summaries.drawing(title, files, styles, notes if explotada else [])
 
 
 def main() -> None:

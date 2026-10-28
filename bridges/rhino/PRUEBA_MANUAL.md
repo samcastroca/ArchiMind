@@ -26,7 +26,7 @@ interfaz, las unidades— se comprueba con estos pasos. Hace falta Rhino 8 para 
    ```
 
 3. Cerrar Claude Desktop del todo y volver a abrirlo. En **Configuración → Desarrollador**,
-   `rhino-bridge` debe estar en marcha, con 4 herramientas. El registro es
+   `rhino-bridge` debe estar en marcha, con 5 herramientas. El registro es
    `mcp-server-rhino-bridge.log`.
 
 ## Sin Rhino
@@ -168,6 +168,42 @@ de áreas:
 3. «Ábrelo descartando esos cambios»: «Se descartaron N cambio(s)», las capas recargadas con la
    escala nueva (todo cambia de tamaño) y el archivo guardado.
 
+## Axonometrías con apto_2hab y en_l
+
+Las isométricas de líneas ocultas se calculan en Rhino con `HiddenLineDrawing`, la clase de
+Make2D, sobre las piezas del 3D del modelo, y quedan en DXF y SVG. Se hacen con proyectos recién
+creados. Rhino debe estar abierto con el puente iniciado; da igual qué documento tenga.
+
+1. Crear los dos proyectos desde core: «Abre el proyecto C:\Temp\axo-apto, importa
+   `<repositorio>\tests\golden\apto_2hab\input.dxf`, propón el mapeo y aplícalo, y confirma la
+   escala», y lo mismo con `C:\Temp\axo-l` y `tests\golden\en_l\input.dxf`.
+2. «Dibuja la axonometría de C:\Temp\axo-apto»: debe negarse con «faltan alturas y no se
+   suponen». Responder «La altura es 2.60 m» (core la aplica con `definir_alturas`) y pedirla de
+   nuevo: «Axonometría isométrica desde el suroeste: DXF en
+   C:\Temp\axo-apto\salidas\axonometria-iso_so.dxf (metros) y SVG en … (1:50)», con «VISIBLES
+   N (0.25 mm), OCULTAS M (0.13 mm)».
+3. Abrir el DXF en Rhino (`Import`, unidades en metros) o en LibreCAD:
+   - se ve el apartamento desde el suroeste, con la fachada sur (la de la puerta de entrada y la
+     ventana de la habitación 2) al frente y a la izquierda;
+   - los huecos de puertas y ventanas están abiertos, con el dintel encima y el antepecho debajo
+     en las ventanas; la losa asoma bajo los muros;
+   - las aristas visibles son continuas en la capa VISIBLES, y las que quedan detrás de un muro
+     van a trazos en OCULTAS. En **Propiedades de capa**, VISIBLES tiene 0.25 mm y OCULTAS
+     0.13 mm, de tipo DASHED;
+   - no hay aristas sueltas a lo largo de las caras de los muros. Si aparecen en las uniones
+     entre machón y dintel, anotarlo: son aristas entre piezas, no un error de la vista.
+4. Abrir el SVG en el navegador: el mismo dibujo en negro, con las ocultas a trazos y más finas.
+5. Pedir las otras tres vistas («desde el noreste», «noroeste», «sureste»): cada una con su
+   archivo `axonometria-iso_ne.dxf`… y la fachada que corresponde al frente (desde el noreste,
+   la norte con la ventana alta del baño).
+6. «Dibújala explotada»: `axonometria-iso_so-explotada.dxf`, con «Explotada: 1.00 m entre cada
+   losa y sus muros». La losa queda abajo, sola, y los muros flotan 1 m por encima. «Explotada con
+   0.5 m de separación»: la distancia se reduce a la mitad.
+7. Repetir los pasos 2, 3 y 6 con C:\Temp\axo-l: el chaflán a 45° con su puerta y el tabique que
+   llega a su punto medio se ven enteros; la losa en L sigue el contorno de los muros.
+8. En Rhino, el documento abierto no cambió: no hay objetos nuevos, el título no tiene el
+   asterisco de cambios y `Undo` no tiene nada de ArchiMind.
+
 ## Errores
 
 - **Documento ajeno con cambios**: `New` en Rhino, dibujar una línea sin guardar y pedir «Abre el
@@ -196,4 +232,13 @@ Lo que no se pudo comprobar sin Rhino, y qué paso lo confirma:
 - que `ObjectAttributes.Name` guarda y devuelve el nombre del espacio, y que una `Box` y una
   `PlanarSrf` dibujadas a mano se leen como prisma y como superficie (Editar, paso 4);
 - la conversión de unidades del documento (Editar, paso 6);
-- que el texto del documento admite el `modelo.json` entero (Editar, paso 7).
+- que el texto del documento admite el `modelo.json` entero (Editar, paso 7);
+- que una `ViewportInfo` nueva acepta la proyección paralela (la documentación da
+  `ChangeToParallelProjection` con y sin argumento; el script prueba las dos), la cámara y el
+  encuadre de `SetFrustum`, y que `HiddenLineDrawing` devuelve las curvas en el sistema de la
+  vista, sin z (Axonometrías, pasos 2 y 3: si sale una planta o un dibujo deformado, falla esto);
+- que `getattr(SilhouetteType, "None")` lee ese miembro y que los segmentos ocultos llegan como
+  `Visibility.Hidden` (Axonometrías, paso 3);
+- que `Extrusion.AddInnerProfile` abre los huecos de las losas (Axonometrías, paso 7: la losa en
+  L sin rellenos raros);
+- que el cálculo no agrega nada al documento (Axonometrías, paso 8).

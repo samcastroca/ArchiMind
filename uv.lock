@@ -154,18 +154,24 @@ name = "archimind-rhino-bridge"
 version = "0.1.0"
 source = { editable = "bridges/rhino/mcp" }
 dependencies = [
+    { name = "archimind-core" },
     { name = "archimind-schema" },
+    { name = "ezdxf" },
     { name = "mcp" },
     { name = "pydantic" },
+    { name = "pyyaml" },
     { name = "rhino3dm" },
     { name = "shapely" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "archimind-core", editable = "packages/core" },
     { name = "archimind-schema", editable = "packages/schema" },
+    { name = "ezdxf", specifier = ">=1.4.5" },
     { name = "mcp", specifier = ">=2.3" },
     { name = "pydantic", specifier = ">=2" },
+    { name = "pyyaml", specifier = ">=6.0.3" },
     { name = "rhino3dm", specifier = ">=8.35.0" },
     { name = "shapely", specifier = ">=2.1" },
 ]

@@ -11,11 +11,12 @@ from pathlib import Path
 from typing import Any
 
 import archimind_bridge as bridge
+import ezdxf
 import pytest
 from archimind_core import server as core_server
 from archimind_rhino_bridge import server as rhino_server
 from archimind_rhino_bridge.client import CONFIG_ENV, NOT_RUNNING
-from archimind_schema import EditsDraft, load_project
+from archimind_schema import EditsDraft, load_project, save_project
 from fake_rhino import FakeDocument
 from golden import GOLDEN_DIR
 from mcp import Client, StdioServerParameters
@@ -23,7 +24,7 @@ from mcp.types import TextContent
 
 pytestmark = pytest.mark.anyio
 
-TOOLS = {"estado_rhino", "abrir_en_rhino", "leer_cambios", "guardar_3dm"}
+TOOLS = {"estado_rhino", "abrir_en_rhino", "leer_cambios", "guardar_3dm", "make2d_axonometria"}
 MAX_LINES = 50
 TOKEN = "token-de-prueba"
 
@@ -93,6 +94,11 @@ async def _project(core: Client, tmp_path: Path) -> Path:
     return folder
 
 
+async def _with_heights(core: Client, folder: Path) -> None:
+    level_id = load_project(folder).levels[0].id
+    await call(core, "definir_alturas", project_path=str(folder), por_nivel={level_id: 2.6})
+
+
 # --- Contrato ---------------------------------------------------------------------------
 
 
@@ -100,7 +106,7 @@ async def test_tools_follow_the_server_rules(client: Client) -> None:
     tools = (await client.list_tools()).tools
     assert {tool.name for tool in tools} == TOOLS
     for tool in tools:
-        assert re.fullmatch(r"[a-z]+(_[a-z0-9]+)*", tool.name)
+        assert re.fullmatch(r"[a-z][a-z0-9]*(_[a-z0-9]+)*", tool.name)
         assert "project_path" in tool.input_schema.get("required", [])
         assert tool.description and len(tool.description) > 80
         assert tool.output_schema is None
@@ -118,6 +124,7 @@ async def test_without_rhino_every_tool_says_what_to_run(
     client: Client, core: Client, tmp_path: Path, config: Path
 ) -> None:
     folder = await _project(core, tmp_path)
+    await _with_heights(core, folder)
     for tool in TOOLS:
         assert (await fails(client, tool, project_path=str(folder))).endswith(NOT_RUNNING)
 
@@ -270,3 +277,41 @@ async def test_edit_cycle_moves_a_wall_and_updates_the_areas(
     reloaded = await call(client, "abrir_en_rhino", project_path=path)
     assert "ya estaban aplicadas en el modelo" in reloaded and "descartaron" not in reloaded
     assert "Sin cambios" in await call(client, "leer_cambios", project_path=path)
+
+
+# --- Dibujos ----------------------------------------------------------------------------
+
+
+async def test_axonometries_are_drawn_without_touching_the_document(
+    client: Client, core: Client, tmp_path: Path, rhino: FakeDocument
+) -> None:
+    folder = await _project(core, tmp_path)
+    path = str(folder)
+    asked = await call(client, "make2d_axonometria", project_path=path)
+    assert "faltan alturas y no se suponen" in asked and "definir_alturas" in asked
+    assert "hidden_lines" not in rhino.calls
+
+    await _with_heights(core, folder)
+    for view in ("iso_ne", "iso_no", "iso_se", "iso_so"):
+        drawn = await call(client, "make2d_axonometria", project_path=path, vista=view)
+        dxf = folder / "salidas" / f"axonometria-{view}.dxf"
+        assert f"DXF en {dxf} (metros) y SVG en {dxf.with_suffix('.svg')} (1:50)" in drawn
+        assert re.search(r"Segmentos por capa: VISIBLES \d+ \(0.25 mm\)", drawn)
+        assert ezdxf.readfile(dxf).layers.get("VISIBLES").dxf.lineweight == 25
+    exploded = await call(
+        client, "make2d_axonometria", project_path=path, explotada=True, separacion=0.8
+    )
+    assert "axonometria-iso_so-explotada.dxf" in exploded
+    assert "Explotada: 0.80 m entre cada losa y sus muros" in exploded
+    assert rhino.objects == [] and not rhino.modified  # el documento no se usó
+
+
+async def test_a_drawing_needs_a_confirmed_scale(
+    client: Client, core: Client, tmp_path: Path, rhino: FakeDocument
+) -> None:
+    folder = await _project(core, tmp_path)
+    project = load_project(folder)
+    project.scale_confirmed = False
+    save_project(project, folder)
+    message = await fails(client, "make2d_axonometria", project_path=str(folder))
+    assert "confirmar_escala" in message

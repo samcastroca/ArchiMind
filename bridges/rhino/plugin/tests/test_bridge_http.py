@@ -37,6 +37,17 @@ class FakeOps:
     def save_as(self, path: str) -> dict[str, Any]:
         return {"path": path}
 
+    def hidden_lines(
+        self,
+        solids: list[Any],
+        camera: dict[str, Any],
+        clips: list[Any],
+        include_hidden: bool,
+        tolerance: float,
+    ) -> dict[str, Any]:
+        bridge.check_hidden_lines(solids, camera, clips)
+        return {"segments": []}
+
 
 @pytest.fixture
 def server() -> Iterator[bridge.BridgeServer]:
@@ -135,6 +146,32 @@ def test_validates_the_load_payload(server: bridge.BridgeServer) -> None:
     ):
         body = json.dumps(args | {"objects": [bad]}).encode()
         assert _post(server, "load_model_layers", body)[0] == 400
+
+
+def test_validates_the_hidden_lines_payload(server: bridge.BridgeServer) -> None:
+    solid = {"footprint": [[0, 0], [1, 0], [1, 1]], "holes": [], "z0": 0, "z1": 2.6}
+    camera = {
+        "location": [10, 10, 10],
+        "direction": [-1, -1, -1],
+        "up": [0, 0, 1],
+        "frustum": [-5, 5, -5, 5, 1, 30],
+    }
+    clip = {"origin": [0, 0, 0], "normal": [0, 1, 0]}
+    args = {"solids": [solid], "camera": camera, "clips": [clip]}
+    args |= {"include_hidden": True, "tolerance": 0.001}
+    ok = json.dumps(args).encode()
+    assert _post(server, "hidden_lines", ok) == (200, {"ok": True, "result": {"segments": []}})
+    for bad in (
+        {"solids": []},
+        {"solids": [solid | {"z1": 0}]},
+        {"solids": [solid | {"footprint": [[0, 0], [1, 0]]}]},
+        {"solids": [solid | {"holes": [[[0, 0], [1, "a"], [1, 1]]]}]},
+        {"camera": camera | {"up": [0, 1]}},
+        {"camera": {k: v for k, v in camera.items() if k != "frustum"}},
+        {"clips": [{"origin": [0, 0, 0]}]},
+    ):
+        body = json.dumps(args | bad).encode()
+        assert _post(server, "hidden_lines", body)[0] == 400
 
 
 def test_run_posted_returns_the_result_or_the_error() -> None:

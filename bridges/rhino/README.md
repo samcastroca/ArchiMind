@@ -4,12 +4,13 @@ Lleva el modelo de un proyecto de ArchiMind a Rhino 8 y lee lo que se editó all
 
 - `plugin/archimind_bridge.py`: script para el editor de scripts de Rhino 8. Arranca un servidor
   HTTP en `127.0.0.1` (puerto y token en `~/.archimind/rhino_bridge.json`, que crea la primera
-  vez) con cinco operaciones fijas: `ping`, `open_file`, `load_model_layers`,
-  `read_tagged_objects` y `save_as`. Todo lo que toca el documento corre en el hilo de la
-  interfaz de Rhino.
+  vez) con seis operaciones fijas: `ping`, `open_file`, `load_model_layers`,
+  `read_tagged_objects`, `save_as` y `hidden_lines` (líneas ocultas con HiddenLineDrawing, en
+  memoria). Todo corre en el hilo de la interfaz de Rhino.
 - `mcp/`: el servidor MCP `rhino-bridge` (paquete `archimind-rhino-bridge`) con `estado_rhino`,
-  `abrir_en_rhino`, `leer_cambios` y `guardar_3dm`. Lo que deja `leer_cambios` lo guarda en el
-  modelo `aplicar_borrador` de `archimind-core`.
+  `abrir_en_rhino`, `leer_cambios`, `guardar_3dm` y `make2d_axonometria`. Lo que deja
+  `leer_cambios` lo guarda en el modelo `aplicar_borrador` de `archimind-core`. Los grosores y
+  tipos de línea de los dibujos están en `mcp/config/estilos.yaml`.
 
 Para iniciarlo: en Rhino, `ScriptEditor` → abrir `plugin/archimind_bridge.py` → Ejecutar (F5).
 La configuración de Claude Desktop y la prueba completa están en

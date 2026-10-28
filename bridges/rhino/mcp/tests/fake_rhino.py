@@ -1,18 +1,23 @@
-"""Un documento de Rhino en memoria con las cinco operaciones del puente.
+"""Un documento de Rhino en memoria con las seis operaciones del puente.
 
 Hace lo que hace `RhinoOps` del script del puente, sin RhinoCommon: guarda los objetos que carga
 y los devuelve como caras planas, igual que `Extrusion.ToBrep(True)` — cada bucle cerrado, con
 otro vértice inicial y en sentido contrario, como puede devolverlos Rhino. Las ayudas de edición
 imitan lo que el usuario hace en Rhino (mover, girar, estirar, borrar, copiar…), en metros.
+
+`hidden_lines` no calcula ocultaciones: proyecta todas las aristas de los prismas como
+visibles, recortadas por los planos, y da como cortado el contorno de cada prisma sobre el
+primer plano. Basta para probar el camino del servidor MCP; lo real se prueba en Rhino.
 """
 
 import copy
 import math
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
 import archimind_bridge as bridge
+from shapely import LineString, Polygon
 
 Point = tuple[float, float]
 
@@ -128,6 +133,31 @@ class FakeDocument:
         self.path, self.modified = path, False
         return {"path": path}
 
+    def hidden_lines(
+        self,
+        solids: list[dict[str, Any]],
+        camera: dict[str, Any],
+        clips: list[dict[str, Any]],
+        include_hidden: bool,
+        tolerance: float,
+    ) -> dict[str, Any]:
+        self.calls.append("hidden_lines")
+        self._idle()
+        bridge.check_hidden_lines(solids, camera, clips)
+        frame = _frame(camera)
+        segments = []
+        for solid in solids:
+            for a, b in _edges(solid):
+                clipped = _clip(a, b, clips)
+                if clipped is not None:
+                    points = [_project(p, frame) for p in clipped]
+                    segments.append({"kind": "visible", "points": points})
+            if clips:
+                for a, b in _section(solid, clips[0]):
+                    points = [_project(p, frame) for p in (a, b)]
+                    segments.append({"kind": "section", "points": points})
+        return {"segments": segments}
+
     def _idle(self) -> None:
         if self.in_command:
             raise bridge.OpError("Rhino está ejecutando un comando.")
@@ -215,3 +245,63 @@ def _faces(obj: FakeObject) -> list[Any] | None:
         side = [[*a, obj.z0], [*b, obj.z0], [*b, obj.z1], [*a, obj.z1], [*a, obj.z0]]
         faces.append([side])
     return faces
+
+
+Point3 = tuple[float, float, float]
+
+
+def _frame(camera: dict[str, Any]) -> tuple[Point3, Point3, Point3]:
+    """Los ejes de la HLD: x a la derecha, y hacia arriba, origen en la cámara."""
+    d, u = camera["direction"], camera["up"]
+    right = (d[1] * u[2] - d[2] * u[1], d[2] * u[0] - d[0] * u[2], d[0] * u[1] - d[1] * u[0])
+    return tuple(camera["location"]), right, tuple(u)
+
+
+def _project(p: Point3, frame: tuple[Point3, Point3, Point3]) -> list[float]:
+    origin, right, up = frame
+    v = [p[i] - origin[i] for i in range(3)]
+    return [sum(v[i] * right[i] for i in range(3)), sum(v[i] * up[i] for i in range(3))]
+
+
+def _edges(solid: dict[str, Any]) -> list[tuple[Point3, Point3]]:
+    z0, z1 = solid["z0"], solid["z1"]
+    edges = []
+    for ring in [solid["footprint"], *solid["holes"]]:
+        for (ax, ay), (bx, by) in zip(ring, [*ring[1:], ring[0]], strict=True):
+            edges += [((ax, ay, z0), (bx, by, z0)), ((ax, ay, z1), (bx, by, z1))]
+            edges.append(((ax, ay, z0), (ax, ay, z1)))
+    return edges
+
+
+def _clip(a: Point3, b: Point3, clips: Sequence[dict[str, Any]]) -> list[Point3] | None:
+    """El tramo de la arista que queda del lado contrario a la normal de cada plano."""
+    lo, hi = 0.0, 1.0
+    for clip in clips:
+        o, n = clip["origin"], clip["normal"]
+        da = sum((a[i] - o[i]) * n[i] for i in range(3))
+        db = sum((b[i] - o[i]) * n[i] for i in range(3))
+        if da > 0 and db > 0:
+            return None
+        if da > 0 or db > 0:
+            t = da / (da - db)
+            lo, hi = (max(lo, t), hi) if da > 0 else (lo, min(hi, t))
+    if hi - lo <= 1e-9:
+        return None
+    return [tuple(a[i] + s * (b[i] - a[i]) for i in range(3)) for s in (lo, hi)]  # type: ignore[misc]
+
+
+def _section(solid: dict[str, Any], clip: dict[str, Any]) -> list[tuple[Point3, Point3]]:
+    """El contorno del prisma sobre un plano vertical: un rectángulo por tramo de la huella que
+    cruza la traza del plano."""
+    (ox, oy, _), (nx, ny, _) = clip["origin"], clip["normal"]
+    reach = 1e4
+    trace = LineString([(ox - ny * reach, oy + nx * reach), (ox + ny * reach, oy - nx * reach)])
+    cut = Polygon(solid["footprint"], solid["holes"]).intersection(trace)
+    z0, z1 = solid["z0"], solid["z1"]
+    edges = []
+    for part in getattr(cut, "geoms", [cut]):
+        if isinstance(part, LineString) and part.length > 0:
+            (ax, ay), (bx, by) = part.coords[0], part.coords[-1]
+            corners = [(ax, ay, z0), (bx, by, z0), (bx, by, z1), (ax, ay, z1)]
+            edges += list(zip(corners, [*corners[1:], corners[0]], strict=True))
+    return edges

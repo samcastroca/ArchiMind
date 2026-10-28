@@ -4,6 +4,8 @@ from pathlib import Path
 from typing import Any
 
 from archimind_rhino_bridge.changes import Changes
+from archimind_rhino_bridge.drawing_files import DrawingFiles
+from archimind_rhino_bridge.styles import Styles
 
 MAX_CHANGES = 25
 MAX_NOTES = 10
@@ -125,3 +127,18 @@ def already_applied(n: int) -> str:
 
 def saved(path: Path) -> str:
     return f"Documento de Rhino guardado en {path}."
+
+
+def drawing(title: str, files: DrawingFiles, styles: Styles, notes: list[str]) -> str:
+    """El dibujo terminado: sus archivos y lo que hay en cada capa, con su grosor."""
+    layers = ", ".join(
+        f"{layer} {n} ({styles.layers[layer].lineweight_mm:.2f} mm)"
+        for layer, n in files.counts.items()
+    )
+    lines = [
+        f"{title}: DXF en {files.dxf} (metros) y SVG en {files.svg} (1:{styles.svg_scale:g}).",
+        f"Segmentos por capa: {layers}.",
+        *notes,
+        "Se dibujó modelo.json; las ediciones de Rhino sin aplicar con aplicar_borrador no salen.",
+    ]
+    return "\n".join(lines)

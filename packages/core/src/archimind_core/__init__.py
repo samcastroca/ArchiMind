@@ -14,6 +14,7 @@ from archimind_core.build_3d import (
     HeightsMissing,
     Piece,
     build_3d,
+    model_pieces,
     slab_pieces,
     wall_pieces,
 )
@@ -127,6 +128,7 @@ __all__ = [
     "apply_mapping",
     "assign_blocks",
     "build_3d",
+    "model_pieces",
     "area_table",
     "build_model",
     "commit",

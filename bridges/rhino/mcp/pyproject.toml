@@ -1,12 +1,15 @@
 [project]
 name = "archimind-rhino-bridge"
 version = "0.1.0"
-description = "Servidor MCP rhino-bridge: el modelo de ArchiMind en Rhino 8 a través del puente."
+description = "Servidor MCP rhino-bridge: el modelo de ArchiMind en Rhino 8 a través del puente, con axonometrías y cortes."
 requires-python = ">=3.11"
 dependencies = [
+    "archimind-core",
     "archimind-schema",
+    "ezdxf>=1.4.5",
     "mcp>=2.3",
     "pydantic>=2",
+    "pyyaml>=6.0.3",
     "rhino3dm>=8.35.0",
     "shapely>=2.1",
 ]
@@ -15,6 +18,7 @@ dependencies = [
 archimind-rhino-bridge = "archimind_rhino_bridge.server:main"
 
 [tool.uv.sources]
+archimind-core = { workspace = true }
 archimind-schema = { workspace = true }
 
 [build-system]
