@@ -46,8 +46,14 @@ class ViewError(Exception):
 def drawing_pieces(
     project: Project, exploded: bool, separation: float, slab_thickness: float
 ) -> list[Piece]:
-    """Las piezas del 3D, separadas si `exploded`. Se niega como `model_pieces`."""
+    """Las piezas del 3D, separadas si `exploded`. Se niega como `model_pieces` y si no hay
+    nada que dibujar."""
     pieces = model_pieces(project, slab_thickness)
+    if not pieces:
+        raise ViewError(
+            f"El modelo de {project.name} no tiene muros ni espacios: reconstrúyelo con "
+            "aplicar_mapeo de archimind-core."
+        )
     if not exploded:
         return pieces
     ranks = {

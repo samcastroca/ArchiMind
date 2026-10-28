@@ -66,6 +66,15 @@ def test_without_explosion_the_pieces_are_the_3d_model() -> None:
     assert drawing_pieces(project, False, 1.0, SLAB) == model_pieces(project, SLAB)
 
 
+def test_a_model_without_walls_or_spaces_has_nothing_to_draw() -> None:
+    project = Project(id="vacio", name="vacio", scale_confirmed=True)
+    project.levels.append(
+        Level(id=new_id(project, "niv"), name="Planta baja", elevation=0, default_height=2.6)
+    )
+    with pytest.raises(ViewError, match="no tiene muros ni espacios"):
+        drawing_pieces(project, False, 1.0, SLAB)
+
+
 @settings(max_examples=25, deadline=None)
 @given(st.floats(min_value=0.1, max_value=5))
 def test_explosion_lifts_walls_off_their_slab_and_levels_off_each_other(gap: float) -> None:
