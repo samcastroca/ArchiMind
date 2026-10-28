@@ -46,6 +46,9 @@ def test_figures_from_the_data_pass_however_they_are_written(text: str) -> None:
         ("Tiene 3 puertas.", ["3"]),
         ("Útil: 55,26 m².", ["55,26"]),
         ("Del 27.10.2026.", ["27.10.2026"]),
+        # Mal formados: una lista sin espacios o miles que no son de tres cifras.
+        ("Vanos de 0.90,2.10 m.", ["0.90,2.10"]),
+        ("Útil: 1,23.4 m².", ["1,23.4"]),
     ],
 )
 def test_figures_not_in_the_data_are_rejected(text: str, rejected: list[str]) -> None:
@@ -62,6 +65,10 @@ def test_readings_of_ambiguous_numbers() -> None:
     assert readings("1,5") == [(1.5, 1)]
     assert readings("1.234.567") == [(1234567.0, 0)]
     assert readings("1.234,5") == [(1234.5, 1)]
+    assert readings("1,234.567") == [(1234.567, 3)]
+    assert readings("1.5,2.5") == []
+    assert readings("1,2.3,4") == []
+    assert readings("1,23.5") == []
 
 
 @given(

@@ -32,8 +32,12 @@ def readings(token: str) -> list[Reading]:
     if not separators:
         return [(float(token), 0)]
     if len(set(separators)) == 2:
-        decimal = token[max(token.rfind("."), token.rfind(","))]
+        decimal = separators[-1]
         thousands = "," if decimal == "." else "."
+        whole = token.rpartition(decimal)[0]
+        # Un solo separador decimal y miles de tres cifras; «1.5,2.5» o «1,23.5» no se leen.
+        if decimal in whole or not all(len(g) == 3 for g in whole.split(thousands)[1:]):
+            return []
         return [_decimal(token.replace(thousands, ""), decimal)]
     separator = separators[0]
     groups = token.split(separator)
