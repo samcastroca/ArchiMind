@@ -329,6 +329,28 @@ async def test_a_drawing_needs_a_confirmed_scale(
     assert "confirmar_escala" in message
 
 
+async def test_unexpected_failures_keep_their_message_and_are_logged(
+    client: Client,
+    core: Client,
+    tmp_path: Path,
+    rhino: FakeDocument,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    folder = await _project(core, tmp_path)
+    await _with_heights(core, folder)
+
+    def locked(*_: object) -> None:
+        raise PermissionError("el DXF está abierto en AutoCAD")
+
+    monkeypatch.setattr(rhino_server, "write_drawing", locked)
+    message = await fails(client, "make2d_axonometria", project_path=str(folder))
+    assert "PermissionError: el DXF está abierto en AutoCAD" in message
+    assert "registro del servidor" in message
+    [record] = [r for r in caplog.records if r.name == "archimind_rhino_bridge"]
+    assert record.exc_info is not None and "make2d_axonometria" in record.getMessage()
+
+
 async def test_a_proposed_cut_is_drawn_by_name(
     client: Client, core: Client, tmp_path: Path, rhino: FakeDocument
 ) -> None:

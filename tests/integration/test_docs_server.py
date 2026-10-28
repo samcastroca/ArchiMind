@@ -212,3 +212,23 @@ async def test_the_sheet_only_takes_verified_numbers(
 async def test_a_folder_without_a_project(client: Client, tmp_path: Path) -> None:
     message = await fails(client, "datos_para_memoria", project_path=str(tmp_path / "nada"))
     assert "abrir_proyecto" in message
+
+
+async def test_unexpected_failures_keep_their_message_and_are_logged(
+    client: Client,
+    core: Client,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    folder = await _project(core, tmp_path)
+
+    def locked(*_: object) -> None:
+        raise PermissionError("el CSV está abierto en Excel")
+
+    monkeypatch.setattr(docs_server, "export_budget_csv", locked)
+    message = await fails(client, "presupuesto_preliminar", project_path=str(folder))
+    assert "PermissionError: el CSV está abierto en Excel" in message
+    assert "registro del servidor" in message
+    [record] = [r for r in caplog.records if r.name == "archimind_docs"]
+    assert record.exc_info is not None and "presupuesto_preliminar" in record.getMessage()

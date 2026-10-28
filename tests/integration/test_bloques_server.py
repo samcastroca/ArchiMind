@@ -276,3 +276,31 @@ async def test_flow_errors_say_what_to_do(bloques: Client, core: Client, tmp_pat
         preferencias={"hand": "left"},
     )
     assert "hand no se aplica" in wrong
+
+
+async def test_unexpected_failures_keep_their_message_and_are_logged(
+    bloques: Client,
+    core: Client,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    folder = tmp_path / "casa"
+    await call(core, "abrir_proyecto", project_path=str(folder))
+
+    def locked(*_: object) -> None:
+        raise PermissionError("el DXF está abierto en AutoCAD")
+
+    monkeypatch.setitem(bloques_server.EXPORTS, "dxf", locked)
+    message = await fails(
+        bloques,
+        "crear_bloque",
+        project_path=str(folder),
+        tipo="swing_door",
+        parametros={"width": 0.9},
+        formatos=["dxf"],
+    )
+    assert "PermissionError: el DXF está abierto en AutoCAD" in message
+    assert "registro del servidor" in message
+    [record] = [r for r in caplog.records if r.name == "archimind_bloques"]
+    assert record.exc_info is not None and "crear_bloque" in record.getMessage()

@@ -8,6 +8,8 @@ así que sus dos herramientas no reciben `project_path`. Se ejecuta con
 """
 
 import functools
+import logging
+import sys
 from collections.abc import Callable
 from pathlib import Path
 from typing import Annotated, Literal, ParamSpec
@@ -73,6 +75,8 @@ ProjectPath = Annotated[
 ]
 
 mcp = MCPServer("archimind-bloques", instructions=INSTRUCTIONS)
+# Siempre a stderr: por stdout va el protocolo MCP.
+logger = logging.getLogger("archimind_bloques")
 # El catálogo que usan las herramientas; las pruebas lo cambian por el de prueba.
 catalog_path: Path = DEFAULT_CATALOG_PATH
 
@@ -80,17 +84,25 @@ P = ParamSpec("P")
 
 
 def _tool(annotations: ToolAnnotations) -> Callable[[Callable[P, str]], Callable[P, str]]:
-    """Registra la herramienta y convierte los errores previstos en ToolError: en el SDK, el
-    mensaje de cualquier otra excepción no llega al cliente. Las respuestas son texto, sin
-    salida estructurada que lo repita como JSON."""
+    """Registra la herramienta y convierte toda excepción en ToolError: en el SDK, el mensaje
+    de cualquier otra no llega al cliente. Las imprevistas dejan su traceback en el log. Las
+    respuestas son texto, sin salida estructurada que lo repita como JSON."""
 
     def register(fn: Callable[P, str]) -> Callable[P, str]:
         @functools.wraps(fn)
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> str:
             try:
                 return fn(*args, **kwargs)
+            except ToolError:
+                raise
             except USER_ERRORS as exc:
                 raise ToolError(str(exc)) from exc
+            except Exception as exc:
+                logger.exception("Fallo inesperado en %s", fn.__name__)
+                raise ToolError(
+                    f"Fallo inesperado de ArchiMind. {type(exc).__name__}: {exc}. El detalle "
+                    "completo quedó en el registro del servidor."
+                ) from exc
 
         mcp.tool(annotations=annotations, structured_output=False)(wrapper)
         return fn
@@ -231,6 +243,11 @@ def agregar_al_catalogo(
 
 
 def main() -> None:
+    logging.basicConfig(
+        stream=sys.stderr,
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    )
     mcp.run()
 
 

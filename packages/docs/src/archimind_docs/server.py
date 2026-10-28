@@ -8,7 +8,9 @@ ejecuta con `uv run --package archimind-docs archimind-docs`.
 
 import functools
 import json
+import logging
 import sqlite3
+import sys
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
@@ -63,14 +65,16 @@ ProjectPath = Annotated[
 ]
 
 mcp = MCPServer("archimind-docs", instructions=INSTRUCTIONS)
+# Siempre a stderr: por stdout va el protocolo MCP.
+logger = logging.getLogger("archimind_docs")
 
 P = ParamSpec("P")
 
 
 def _tool(annotations: ToolAnnotations) -> Callable[[Callable[P, str]], Callable[P, str]]:
-    """Registra la herramienta y convierte los errores previstos en ToolError: en el SDK, el
-    mensaje de cualquier otra excepción no llega al cliente. Las respuestas son texto, sin
-    salida estructurada que lo repita como JSON."""
+    """Registra la herramienta y convierte toda excepción en ToolError: en el SDK, el mensaje
+    de cualquier otra no llega al cliente. Las imprevistas dejan su traceback en el log. Las
+    respuestas son texto, sin salida estructurada que lo repita como JSON."""
 
     def register(fn: Callable[P, str]) -> Callable[P, str]:
         @functools.wraps(fn)
@@ -79,6 +83,12 @@ def _tool(annotations: ToolAnnotations) -> Callable[[Callable[P, str]], Callable
                 return fn(*args, **kwargs)
             except USER_ERRORS as exc:
                 raise ToolError(str(exc)) from exc
+            except Exception as exc:
+                logger.exception("Fallo inesperado en %s", fn.__name__)
+                raise ToolError(
+                    f"Fallo inesperado de ArchiMind. {type(exc).__name__}: {exc}. El detalle "
+                    "completo quedó en el registro del servidor."
+                ) from exc
 
         mcp.tool(annotations=annotations, structured_output=False)(wrapper)
         return fn
@@ -199,6 +209,11 @@ def generar_ficha_pdf(
 
 
 def main() -> None:
+    logging.basicConfig(
+        stream=sys.stderr,
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    )
     mcp.run()
 
 
