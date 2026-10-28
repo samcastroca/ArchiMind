@@ -21,7 +21,8 @@ from pydantic import Field
 
 from archimind_core import summaries
 from archimind_core.blocks import DRAFT_PATH, BlocksError, apply_block_draft
-from archimind_core.build_rules import BuildRulesError
+from archimind_core.build_3d import HeightsMissing, build_3d
+from archimind_core.build_rules import BuildRulesError, load_build_rules
 from archimind_core.compare import compare_versions
 from archimind_core.drawing import DrawingError
 from archimind_core.edits import DRAFT_PATH as EDITS_DRAFT_PATH
@@ -55,8 +56,8 @@ ArchiMind convierte planos arquitectónicos DXF/DWG en un modelo semántico (mur
 espacios) guardado en la carpeta de cada proyecto y versionado con git.
 Flujo: abrir_proyecto → importar_plano → proponer_mapeo_capas → aplicar_mapeo (con la propuesta
 revisada) → confirmar_escala → definir_alturas (las que dé el usuario) → consultas
-(listar_modelo, cuadro_de_areas, validar_modelo), exportar_plano (png, dxf o dwg) y
-comparar_versiones.
+(listar_modelo, cuadro_de_areas, validar_modelo), exportar_plano (png, dxf, dwg o 3dm)
+y comparar_versiones.
 La carpintería la propone archimind-bloques (insertar_bloques_en_plano) en un borrador; se guarda
 en el modelo con asignar_bloques.
 Lo editado en Rhino lo lee rhino-bridge (leer_cambios) en un borrador; se guarda en el modelo con
@@ -368,11 +369,11 @@ def comparar_versiones(
 def exportar_plano(
     project_path: ProjectPath,
     formato: Annotated[
-        Literal["png", "dxf", "dwg"],
+        Literal["png", "dxf", "dwg", "3dm"],
         Field(
             description=(
                 '"png" para mirar la planta, "dxf" para llevarla a un programa de CAD, "dwg" solo '
-                "si el usuario lo pide."
+                'si el usuario lo pide, "3dm" para el modelo 3D en Rhino.'
             )
         ),
     ] = "dxf",
@@ -385,6 +386,16 @@ def exportar_plano(
             )
         ),
     ] = "R2018",
+    espesor_losa: Annotated[
+        float | None,
+        Field(
+            description=(
+                'Solo con formato="3dm": espesor de la losa de piso en metros, si el usuario lo '
+                "da; si no, el de build_rules.yaml."
+            ),
+            gt=0,
+        ),
+    ] = None,
 ) -> str:
     """Dibuja la planta del modelo en salidas/. Con formato="png", salidas/vista.png: espacios
     con nombre y área, muros y vanos, para revisar a ojo el modelo reconstruido. Con
@@ -395,9 +406,20 @@ def exportar_plano(
     salidas/<proyecto>.dwg, el mismo dibujo, con el DXF al lado: úsalo solo si el usuario pide
     DWG o lo entrega a alguien que trabaja en AutoCAD, con version_dwg="R2013" si usa AutoCAD
     2013 a 2017. El DWG necesita ODA File Converter en el equipo del servidor y no está
-    disponible en modo remoto; si falla, ofrece el DXF. DXF y DWG necesitan la escala confirmada.
-    Devuelve la ruta del archivo."""
+    disponible en modo remoto; si falla, ofrece el DXF. Con formato="3dm",
+    salidas/<proyecto>-3d.3dm: el modelo 3D para Rhino, cada muro en machones, dinteles y
+    antepechos macizos y una losa de piso por nivel, cada objeto con su ID en el user string
+    archimind_id. Si faltan alturas, no escribe nada y dice cuáles: pídelas al usuario y
+    aplícalas con definir_alturas, nunca las supongas. DXF, DWG y 3dm necesitan la escala
+    confirmada. Devuelve la ruta del archivo."""
     folder, project = _use(project_path)
+    if formato == "3dm":
+        thickness = espesor_losa or load_build_rules().slab_thickness_m
+        try:
+            built = build_3d(project, outputs_dir(folder) / f"{folder.name}-3d.3dm", thickness)
+        except HeightsMissing as missing:
+            return summaries.heights_missing(missing.missing)
+        return summaries.built_3d(built, from_rules=espesor_losa is None)
     if formato == "png":
         path = render_model(project, outputs_dir(folder) / "vista.png")
         note = "" if project.scale_confirmed else " (escala sin confirmar: áreas preliminares)"

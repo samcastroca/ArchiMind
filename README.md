@@ -360,9 +360,12 @@ repositorio del proyecto y responden con el hash de la versión:
 - `validar_modelo` y `listar_modelo(que)`: `"espacios"` o `"vanos"` (con el bloque de cada vano).
 - `cuadro_de_areas`: con la escala confirmada, además escribe `salidas/cuadro_de_areas.csv`.
 - `comparar_versiones(version_a, version_b)`: hashes o referencias como `HEAD~1`.
-- `exportar_plano(formato="dxf", version_dwg="R2018")`: `"png"` → `salidas/vista.png`; `"dxf"` →
-  `salidas/<proyecto>.dxf`; `"dwg"` → `salidas/<proyecto>.dwg` (R2013 o R2018) con el DXF al
-  lado, mediante ODA File Converter. Si el servidor corre en remoto, con la variable de entorno
+- `exportar_plano(formato="dxf", version_dwg="R2018", espesor_losa=None)`: `"png"` →
+  `salidas/vista.png`; `"dxf"` → `salidas/<proyecto>.dxf`; `"dwg"` → `salidas/<proyecto>.dwg`
+  (R2013 o R2018) con el DXF al lado, mediante ODA File Converter; `"3dm"` →
+  `salidas/<proyecto>-3d.3dm`, el modelo 3D (sin pisar el `.3dm` del puente con Rhino). Si
+  faltan alturas, el 3D no escribe nada y responde qué niveles y muros no la tienen, para
+  pedírselas al usuario. Si el servidor corre en remoto, con la variable de entorno
   `ARCHIMIND_REMOTO=1`, el DWG queda deshabilitado con un mensaje que ofrece el DXF.
 - `asignar_bloques(borrador="salidas/borrador_bloques.json")`: guarda en el modelo la
   carpintería que propuso `archimind-bloques`.
@@ -488,6 +491,22 @@ La lógica de `core`:
   a DWG R2013 o R2018 con ODA File Converter. Sin la escala confirmada o sin ODA instalado lanza
   `ExportError` y no escribe nada; el mensaje explica cómo instalarlo y ofrece el DXF. La prueba
   de ida y vuelta (mismas entidades y longitudes por capa que el DXF) se omite si ODA no está.
+- **`build_3d(project, ruta, espesor_losa)`** escribe un .3dm en metros con rhino3dm, sin
+  operaciones booleanas: cada muro, por tramos a lo largo del eje, en machones de altura completa
+  entre los vanos, un dintel sobre cada vano que no llega arriba y un antepecho bajo cada vano
+  con antepecho; cada nivel, una losa de piso bajo su cota con el contorno de sus espacios y sus
+  muros (esquinas en L rellenas; lo encerrado sin espacio es un hueco). Cada pieza es una
+  extrusión cerrada: la banda de un tramo recto del eje, con ingletes en los quiebres, cortada en
+  perpendicular, así que las piezas de un muro llenan su huella sin solapes. Capas Machones,
+  Dinteles, Antepechos y Losas; el user string `archimind_id` es el muro, el vano o el nivel.
+  La altura de un muro es la suya o la de su nivel; si es la de un nivel sin confirmar, lanza
+  `HeightsMissing` con la lista. Sin la escala confirmada o con errores de `validate`, lanza
+  `ExportError`. En ningún caso escribe nada. `wall_pieces` y `slab_pieces` dan las piezas sin
+  rhino3dm. El espesor de losa por defecto (0.15 m) está en `build_rules.yaml`
+  (`slab_thickness_m`). La prueba de propiedades comprueba que el volumen de un muro es
+  longitud × espesor × altura menos sus vanos (± 0.5 %), y la de `test_build_3d.py` deja una
+  axonometría en `tests/output/build_3d/`; `packages/core/PRUEBA_MANUAL.md` explica cómo
+  revisar el .3dm en Rhino.
 - **`assign_blocks(project, draft)`** aplica un `BlocksDraft`: comprueba todo antes de cambiar
   nada (que cada vano exista, sea del tipo del bloque —un vano sin tipo adopta el del bloque— y
   mida lo mismo ± 1 mm; si no, el modelo cambió desde el borrador y hay que repetirlo), pone a

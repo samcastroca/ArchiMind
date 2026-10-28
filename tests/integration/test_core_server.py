@@ -335,6 +335,27 @@ async def test_heights_are_confirmed_and_versioned(client: Client, tmp_path: Pat
     )
 
 
+async def test_the_3d_model_asks_for_missing_heights(client: Client, tmp_path: Path) -> None:
+    folder = await _built(client, tmp_path, "apto_2hab")
+    path = str(folder)
+    target = folder / "salidas" / "casa-3d.3dm"
+    level_id = load_project(folder).levels[0].id
+
+    asked = await call(client, "exportar_plano", project_path=path, formato="3dm")
+    assert "faltan alturas y no se suponen" in asked
+    assert f"{level_id} «Planta baja» (por defecto 2.60 m, sin confirmar)" in asked
+    assert "definir_alturas" in asked and not target.exists()
+
+    await call(client, "definir_alturas", project_path=path, por_nivel={level_id: 2.6})
+    built = await call(client, "exportar_plano", project_path=path, formato="3dm")
+    assert f"Modelo 3D guardado en {target}" in built and target.stat().st_size > 0
+    assert "Losas 1" in built and "0.15 m, el de build_rules.yaml" in built
+    thicker = await call(
+        client, "exportar_plano", project_path=path, formato="3dm", espesor_losa=0.2
+    )
+    assert "Losa de piso de 0.20 m, bajo" in thicker
+
+
 # --- Errores ----------------------------------------------------------------------------
 
 

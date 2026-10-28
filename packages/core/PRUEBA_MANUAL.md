@@ -12,7 +12,7 @@ Claude Desktop. Estos pasos comprueban la integración real.
    barras invertidas dobles.
 3. Cerrar Claude Desktop del todo (también desde la bandeja del sistema) y volver a abrirlo.
 4. En **Configuración → Desarrollador**, `archimind-core` debe aparecer en marcha, y en el menú
-   de herramientas del chat, con 12 herramientas. Si no aparece, desde esa misma pantalla se
+   de herramientas del chat, con 13 herramientas. Si no aparece, desde esa misma pantalla se
    abre la carpeta de registros: el archivo es `mcp-server-archimind-core.log`.
 
 ## Flujo
@@ -46,8 +46,26 @@ Usar una carpeta nueva, p. ej. `C:\Temp\casa-prueba`, y como plano
      ya no debe omitir la prueba de ida y vuelta (sin ODA aparece como `SKIPPED`).
 9. En el menú «+» del chat, adjuntar el recurso «Modelo del proyecto actual». Debe mostrar el
    resumen de `casa-prueba` con las últimas versiones.
-10. En la carpeta, `git log --oneline` debe mostrar un commit por cada paso que modificó el
-    modelo (crear, importar, aplicar el mapeo, recalcular la escala), firmados como ArchiMind.
+10. Modelo 3D (hace falta Rhino 8, o cualquier visor de .3dm):
+    - Pedir: «Exporta el modelo 3D». Debe responder que faltan alturas, con el nivel «Planta
+      baja» a 2.60 m sin confirmar, sin suponerlas, y no debe aparecer
+      `salidas/casa-prueba-3d.3dm`.
+    - Pedir: «La planta mide 2.60 m de piso a techo y el baño 2.40 m». Debe usar
+      definir_alturas con los dos: el nivel confirmado y, para los muros del baño, un aviso por
+      cada uno, porque todos lo separan de un espacio con la altura del nivel (quedan con 2.60 m).
+    - Pedir de nuevo «Exporta el modelo 3D» y abrir `salidas/casa-prueba-3d.3dm` en Rhino 8.
+      `Units` debe decir metros. Las capas deben ser Machones, Dinteles, Antepechos y Losas.
+      Sobre las ventanas tiene que haber dintel y debajo antepecho; sobre las puertas, dintel y
+      nada debajo; la losa, de 0.15 m, bajo la cota 0.
+    - Seleccionar todo y ejecutar `What`: todos los objetos deben ser extrusiones cerradas
+      (*closed extrusion*). `Volume` sobre un muro entero sin vanos debe dar longitud × espesor ×
+      altura.
+    - Seleccionar un dintel y abrir **Propiedades → Atributos de usuario**: `archimind_id` debe
+      ser el ID del vano (`vano-…`); en un machón, el del muro (`muro-…`); en la losa, el del
+      nivel (`niv-…`).
+11. En la carpeta, `git log --oneline` debe mostrar un commit por cada paso que modificó el
+    modelo (crear, importar, aplicar el mapeo, recalcular la escala, definir alturas), firmados
+    como ArchiMind.
 
 ## Errores
 

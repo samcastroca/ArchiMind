@@ -122,6 +122,7 @@ dependencies = [
     { name = "mcp" },
     { name = "pydantic" },
     { name = "pyyaml" },
+    { name = "rhino3dm" },
     { name = "shapely" },
 ]
 
@@ -133,6 +134,7 @@ requires-dist = [
     { name = "mcp", specifier = ">=2.3" },
     { name = "pydantic", specifier = ">=2" },
     { name = "pyyaml", specifier = ">=6.0.3" },
+    { name = "rhino3dm", specifier = ">=8.35.0" },
     { name = "shapely", specifier = ">=2.1" },
 ]
 

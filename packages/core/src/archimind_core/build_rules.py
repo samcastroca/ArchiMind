@@ -44,6 +44,7 @@ class BuildRules(_Rules):
     level: LevelDefaults
     openings: dict[OpeningKind, OpeningDefaults]
     space_category: SpaceCategory
+    slab_thickness_m: float = Field(gt=0)
 
 
 def load_build_rules(path: str | Path = DEFAULT_BUILD_RULES_PATH) -> BuildRules:

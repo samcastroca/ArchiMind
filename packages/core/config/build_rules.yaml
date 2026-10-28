@@ -29,3 +29,5 @@ openings:
   window: {height: 1.20, sill_height: 0.90}
   void: {height: 2.10, sill_height: 0.0}
 space_category: useful
+# Espesor de la losa de piso del modelo 3D (exportar_plano en 3dm), bajo la cota del nivel.
+slab_thickness_m: 0.15

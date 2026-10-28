@@ -9,6 +9,14 @@ from archimind_core.blocks import (
     assign_blocks,
 )
 from archimind_core.build import BuildResult, build_model
+from archimind_core.build_3d import (
+    Build3dResult,
+    HeightsMissing,
+    Piece,
+    build_3d,
+    slab_pieces,
+    wall_pieces,
+)
 from archimind_core.build_rules import (
     DEFAULT_BUILD_RULES_PATH,
     BuildRules,
@@ -78,6 +86,7 @@ __all__ = [
     "AssignedBlock",
     "BlocksAssignment",
     "BlocksError",
+    "Build3dResult",
     "BuildResult",
     "BuildRules",
     "BuildRulesError",
@@ -88,6 +97,7 @@ __all__ = [
     "DwgVersion",
     "ExportError",
     "HeightsError",
+    "HeightsMissing",
     "HeightsResult",
     "HistoryError",
     "LayerProposal",
@@ -99,6 +109,7 @@ __all__ = [
     "OpenedProject",
     "OpeningCount",
     "OpeningCounts",
+    "Piece",
     "ProjectError",
     "QuantitiesError",
     "ScaleConfirmation",
@@ -115,6 +126,7 @@ __all__ = [
     "apply_block_draft",
     "apply_mapping",
     "assign_blocks",
+    "build_3d",
     "area_table",
     "build_model",
     "commit",
@@ -145,5 +157,7 @@ __all__ = [
     "recent_versions",
     "render_model",
     "rescale",
+    "slab_pieces",
     "wall_quantities",
+    "wall_pieces",
 ]

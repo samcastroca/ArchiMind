@@ -13,6 +13,7 @@ from archimind_schema import EditsDraft, Problem, Project, validate
 
 from archimind_core.blocks import BlocksAssignment
 from archimind_core.build import BuildResult
+from archimind_core.build_3d import LAYERS, Build3dResult
 from archimind_core.compare import VersionDiff, compare_versions
 from archimind_core.edits import EditsResult
 from archimind_core.heights import HeightsResult, MissingHeight, missing_heights
@@ -306,6 +307,20 @@ def heights_commit_message(result: HeightsResult) -> str:
     if result.walls:
         parts.append(f"{count(len(result.walls), 'muro')} por espacio")
     return f"Define alturas: {', '.join(parts)}"
+
+
+def built_3d(result: Build3dResult, from_rules: bool) -> str:
+    source = ", el de build_rules.yaml" if from_rules else ""
+    layers = ", ".join(f"{LAYERS[kind][0]} {result.counts.get(kind, 0)}" for kind in LAYERS)
+    return _text(
+        [
+            f"Modelo 3D guardado en {result.path} (metros, sólidos cerrados).",
+            f"Objetos por capa: {layers}.",
+            f"Losa de piso de {result.slab_thickness:.2f} m{source}, bajo la cota de cada nivel.",
+            "Cada objeto lleva su ID en el user string archimind_id: el muro en los machones, el "
+            "vano en dinteles y antepechos, el nivel en las losas.",
+        ]
+    )
 
 
 def heights_missing(items: Sequence[MissingHeight]) -> str:
